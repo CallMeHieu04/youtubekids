@@ -8,7 +8,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, avatarUrl, dailyLimitMinutes, allowedStartHour, allowedEndHour, isLocked } = body;
+    const { name, avatarUrl, dailyLimitMinutes, allowedStartHour, allowedEndHour, isLocked, passcode } = body;
 
     const updateData: {
       name?: string;
@@ -17,6 +17,7 @@ export async function PUT(
       allowedStartHour?: number;
       allowedEndHour?: number;
       isLocked?: boolean;
+      passcode?: string | null;
     } = {};
 
     if (name !== undefined) updateData.name = name;
@@ -25,6 +26,7 @@ export async function PUT(
     if (allowedStartHour !== undefined) updateData.allowedStartHour = Number(allowedStartHour);
     if (allowedEndHour !== undefined) updateData.allowedEndHour = Number(allowedEndHour);
     if (isLocked !== undefined) updateData.isLocked = Boolean(isLocked);
+    if (passcode !== undefined) updateData.passcode = passcode ? String(passcode).trim() : null;
 
     const updated = await prisma.kidProfile.update({
       where: { id },

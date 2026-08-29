@@ -6,6 +6,7 @@ export interface KidProfileData {
   dailyLimitMinutes: number;
   allowedStartHour: number;
   allowedEndHour: number;
+  passcode?: string | null;
   isLocked: boolean;
   usedMinutesToday: number;
 }

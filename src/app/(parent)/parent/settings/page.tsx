@@ -25,6 +25,7 @@ export default function ParentSettingsPage() {
   const [allowedStartHour, setAllowedStartHour] = useState(6);
   const [allowedEndHour, setAllowedEndHour] = useState(21);
   const [isLocked, setIsLocked] = useState(false);
+  const [kidPasscode, setKidPasscode] = useState("");
 
   // Telegram Config
   const [telegramChatId, setTelegramChatId] = useState("");
@@ -64,6 +65,7 @@ export default function ParentSettingsPage() {
         setAllowedStartHour(first.allowedStartHour);
         setAllowedEndHour(first.allowedEndHour);
         setIsLocked(first.isLocked);
+        setKidPasscode(first.passcode || (first.id === "kid-thao-ly" ? "200917" : "220520"));
       }
     } catch (e) {
       console.error("Error loading settings:", e);
@@ -82,6 +84,7 @@ export default function ParentSettingsPage() {
     setAllowedStartHour(kid.allowedStartHour);
     setAllowedEndHour(kid.allowedEndHour);
     setIsLocked(kid.isLocked);
+    setKidPasscode(kid.passcode || (kid.id === "kid-thao-ly" ? "200917" : "220520"));
   };
 
   // 1. Lưu cấu hình Thời gian & Khóa khẩn cấp cho bé đang chọn
@@ -98,15 +101,16 @@ export default function ParentSettingsPage() {
           allowedStartHour,
           allowedEndHour,
           isLocked,
+          passcode: kidPasscode,
         }),
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
         setProfiles((prev) =>
-          prev.map((p) => (p.id === selectedKidId ? { ...p, dailyLimitMinutes, allowedStartHour, allowedEndHour, isLocked } : p))
+          prev.map((p) => (p.id === selectedKidId ? { ...p, dailyLimitMinutes, allowedStartHour, allowedEndHour, isLocked, passcode: kidPasscode } : p))
         );
-        setMessage({ type: "success", text: "Đã cập nhật quy tắc và thời gian xem thành công!" });
+        setMessage({ type: "success", text: "Đã cập nhật quy tắc và mật khẩu của bé thành công!" });
       } else {
         setMessage({ type: "error", text: data.error || "Không thể lưu cài đặt." });
       }
@@ -356,6 +360,23 @@ export default function ParentSettingsPage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="col-span-full">
+            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+              Mật khẩu riêng của bé ({currentKid?.name})
+            </label>
+            <input
+              type="text"
+              maxLength={6}
+              value={kidPasscode}
+              onChange={(e) => setKidPasscode(e.target.value.replace(/\D/g, ""))}
+              placeholder="VD: 200917 (6 chữ số)"
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs font-mono font-bold tracking-wider placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">
+              Bé cần nhập đúng mã này để vào trang xem video (Ví dụ: Thảo Ly là <code className="text-amber-300">200917</code>, Đức Duy là <code className="text-amber-300">220520</code>).
+            </p>
           </div>
         </div>
 

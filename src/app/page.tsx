@@ -1,8 +1,8 @@
 import React from "react";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import { Shield, Sparkles, Clock, ArrowRight, Lock, CheckCircle2 } from "lucide-react";
-import KidAvatar from "@/components/kids/KidAvatar";
+import { Shield, Sparkles, Lock, Clock, CheckCircle2 } from "lucide-react";
+import KidProfileCard from "@/components/kids/KidProfileCard";
 
 export default async function HomePage() {
   const profiles = await prisma.kidProfile.findMany({
@@ -62,30 +62,7 @@ export default async function HomePage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {profiles.map((kid) => (
-              <Link
-                key={kid.id}
-                href={`/kids/${kid.id}`}
-                className="group relative bg-white/10 hover:bg-amber-400 hover:text-slate-900 border border-white/20 hover:border-amber-300 rounded-2xl p-5 flex items-center gap-4 transition-all duration-300 transform hover:-translate-y-1 shadow-lg text-left"
-              >
-                <KidAvatar
-                  avatarUrl={kid.avatarUrl}
-                  name={kid.name}
-                  size="lg"
-                  className="group-hover:border-slate-900"
-                />
-                <div className="flex-1">
-                  <h3 className="font-black text-lg text-white group-hover:text-slate-900 transition-colors">
-                    {kid.name}
-                  </h3>
-                  <div className="flex items-center gap-1.5 text-xs text-indigo-200 group-hover:text-slate-700 mt-1 font-medium">
-                    <Clock className="w-3.5 h-3.5" />
-                    <span>Giới hạn: {kid.dailyLimitMinutes} phút/ngày</span>
-                  </div>
-                </div>
-                <div className="w-8 h-8 rounded-full bg-white/20 group-hover:bg-slate-900 group-hover:text-white flex items-center justify-center transition-colors">
-                  <ArrowRight className="w-4 h-4" />
-                </div>
-              </Link>
+              <KidProfileCard key={kid.id} kid={kid} />
             ))}
 
             {profiles.length === 0 && (

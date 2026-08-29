@@ -33,6 +33,7 @@ model KidProfile {
   dailyLimitMinutes Int          @default(45) // Giới hạn phút xem/ngày
   allowedStartHour  Int          @default(6)  // Giờ bắt đầu được xem (ví dụ 6:00)
   allowedEndHour    Int          @default(21) // Giờ kết thúc được xem (ví dụ 21:00)
+  passcode          String?                   // Mật khẩu số riêng của từng bé
   isLocked          Boolean      @default(false) // Nút khóa khẩn cấp
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt

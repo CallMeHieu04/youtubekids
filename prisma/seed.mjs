@@ -15,18 +15,20 @@ async function main() {
     });
   }
 
-  // Cập nhật 2 bé
+  // 1. Bé Thảo Ly
   await prisma.kidProfile.upsert({
     where: { id: "kid-thao-ly" },
     update: {
       name: "Bé Thảo Ly",
       avatarUrl: "/avatars/thao-ly.png",
+      passcode: "200917",
     },
     create: {
       id: "kid-thao-ly",
       parentId: parent.id,
       name: "Bé Thảo Ly",
       avatarUrl: "/avatars/thao-ly.png",
+      passcode: "200917",
       dailyLimitMinutes: 45,
       allowedStartHour: 6,
       allowedEndHour: 21,
@@ -34,17 +36,20 @@ async function main() {
     },
   });
 
+  // 2. Bé Đức Duy
   await prisma.kidProfile.upsert({
     where: { id: "kid-duc-duy" },
     update: {
       name: "Bé Đức Duy",
       avatarUrl: "/avatars/duc-duy.png",
+      passcode: "220520",
     },
     create: {
       id: "kid-duc-duy",
       parentId: parent.id,
       name: "Bé Đức Duy",
       avatarUrl: "/avatars/duc-duy.png",
+      passcode: "220520",
       dailyLimitMinutes: 45,
       allowedStartHour: 6,
       allowedEndHour: 21,
