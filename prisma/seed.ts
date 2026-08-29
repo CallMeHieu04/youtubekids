@@ -17,15 +17,37 @@ async function main() {
     },
   });
 
-  // 2. Tạo Kid Profile
-  const kid = await prisma.kidProfile.upsert({
-    where: { id: "demo-kid-01" },
-    update: {},
+  // 1. Bé Thảo Ly
+  await prisma.kidProfile.upsert({
+    where: { id: "kid-thao-ly" },
+    update: {
+      name: "Bé Thảo Ly",
+      avatarUrl: "/avatars/thao-ly.png",
+    },
     create: {
-      id: "demo-kid-01",
+      id: "kid-thao-ly",
       parentId: parent.id,
-      name: "Bé Bắp",
-      avatarUrl: "🦁",
+      name: "Bé Thảo Ly",
+      avatarUrl: "/avatars/thao-ly.png",
+      dailyLimitMinutes: 45,
+      allowedStartHour: 6,
+      allowedEndHour: 21,
+      isLocked: false,
+    },
+  });
+
+  // 2. Bé Đức Duy
+  await prisma.kidProfile.upsert({
+    where: { id: "kid-duc-duy" },
+    update: {
+      name: "Bé Đức Duy",
+      avatarUrl: "/avatars/duc-duy.png",
+    },
+    create: {
+      id: "kid-duc-duy",
+      parentId: parent.id,
+      name: "Bé Đức Duy",
+      avatarUrl: "/avatars/duc-duy.png",
       dailyLimitMinutes: 45,
       allowedStartHour: 6,
       allowedEndHour: 21,
