@@ -1,0 +1,79 @@
+// SafeKids Video - Prisma Schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String          @id @default(cuid())
+  email            String?         @unique
+  passwordHash     String?
+  parentPin        String          @default("1234") // Mã PIN 4 số bảo vệ Parent Dashboard
+  telegramBotToken String?         // Custom Bot Token (nếu phụ huynh dùng bot riêng)
+  telegramChatId   String?         // Chat ID nhận tin nhắn cảnh báo
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  kidProfiles      KidProfile[]
+  approvedVideos   ApprovedVideo[]
+
+  @@map("users")
+}
+
+model KidProfile {
+  id                String       @id @default(cuid())
+  parentId          String
+  name              String
+  avatarUrl         String?      @default("👶")
+  dailyLimitMinutes Int          @default(45) // Giới hạn phút xem/ngày
+  allowedStartHour  Int          @default(6)  // Giờ bắt đầu được xem (ví dụ 6:00)
+  allowedEndHour    Int          @default(21) // Giờ kết thúc được xem (ví dụ 21:00)
+  isLocked          Boolean      @default(false) // Nút khóa khẩn cấp
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  parent            User         @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  watchLogs         WatchLog[]
+
+  @@map("kid_profiles")
+}
+
+model ApprovedVideo {
+  id             String      @id @default(cuid())
+  parentId       String
+  youtubeVideoId String      // ID 11 ký tự của YouTube
+  title          String
+  thumbnailUrl   String?
+  authorName     String?     // Tên kênh YouTube
+  duration       Int?        // Thời lượng tính bằng giây (nếu có)
+  category       String      @default("Chung") // Học tập, Hoạt hình, Âm nhạc, Khoa học...
+  description    String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  parent         User        @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, youtubeVideoId])
+  @@map("approved_videos")
+}
+
+model WatchLog {
+  id              String      @id @default(cuid())
+  kidProfileId    String
+  youtubeVideoId  String
+  videoTitle      String
+  startedAt       DateTime    @default(now())
+  durationSeconds Int         @default(0) // Số giây đã xem thực tế (tăng qua heartbeat)
+  completed       Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  kidProfile      KidProfile  @relation(fields: [kidProfileId], references: [id], onDelete: Cascade)
+
+  @@index([kidProfileId, startedAt])
+  @@map("watch_logs")
+}
