@@ -119,11 +119,13 @@ export const ParentGuard: React.FC<ParentGuardProps> = ({ children }) => {
 
             {/* Hidden Input for Keyboard Typing */}
             <input
-              type="password"
+              type="tel"
+              inputMode="numeric"
+              pattern="[0-9]*"
               maxLength={6}
               value={pin}
               onChange={(e) => {
-                const val = e.target.value;
+                const val = e.target.value.replace(/\D/g, "");
                 setPin(val);
                 setError("");
                 if (val.length === 4) handleVerify(val);
@@ -141,13 +143,13 @@ export const ParentGuard: React.FC<ParentGuardProps> = ({ children }) => {
             )}
 
             {/* Number Keypad */}
-            <div className="grid grid-cols-3 gap-2 pt-1">
+            <div className="grid grid-cols-3 gap-2.5 pt-1">
               {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((num) => (
                 <button
                   key={num}
                   type="button"
                   onClick={() => handleKeypadPress(num)}
-                  className="py-3.5 bg-slate-800/80 hover:bg-slate-700 active:scale-95 text-lg font-bold rounded-2xl border border-slate-700 transition"
+                  className="py-3.5 bg-slate-800/90 hover:bg-slate-700 active:bg-amber-400 active:text-slate-950 active:scale-95 text-xl font-bold rounded-2xl border border-slate-700 transition duration-100 touch-manipulation select-none"
                 >
                   {num}
                 </button>
@@ -155,21 +157,21 @@ export const ParentGuard: React.FC<ParentGuardProps> = ({ children }) => {
               <button
                 type="button"
                 onClick={() => setPin("")}
-                className="py-3.5 bg-slate-800/40 hover:bg-slate-800 text-xs font-semibold text-slate-400 rounded-2xl transition"
+                className="py-3.5 bg-slate-800/50 hover:bg-slate-800 active:bg-slate-700 text-xs font-semibold text-slate-400 rounded-2xl transition duration-100 touch-manipulation select-none"
               >
                 Xóa hết
               </button>
               <button
                 type="button"
                 onClick={() => handleKeypadPress("0")}
-                className="py-3.5 bg-slate-800/80 hover:bg-slate-700 active:scale-95 text-lg font-bold rounded-2xl border border-slate-700 transition"
+                className="py-3.5 bg-slate-800/90 hover:bg-slate-700 active:bg-amber-400 active:text-slate-950 active:scale-95 text-xl font-bold rounded-2xl border border-slate-700 transition duration-100 touch-manipulation select-none"
               >
                 0
               </button>
               <button
                 type="button"
                 onClick={handleKeypadDelete}
-                className="py-3.5 bg-slate-800/40 hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white rounded-2xl transition"
+                className="py-3.5 bg-slate-800/50 hover:bg-slate-800 active:bg-slate-700 flex items-center justify-center text-slate-400 active:text-white rounded-2xl transition duration-100 touch-manipulation select-none"
               >
                 <Delete className="w-5 h-5" />
               </button>

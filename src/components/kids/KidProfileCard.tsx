@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Lock, Sparkles, X, ArrowRight, Delete, Loader2, ShieldCheck, Heart } from "lucide-react";
+import { Lock, X, ArrowRight, Delete, Loader2 } from "lucide-react";
 import KidAvatar from "@/components/kids/KidAvatar";
 import { useRouter } from "next/navigation";
 
@@ -85,41 +85,48 @@ export const KidProfileCard: React.FC<KidProfileCardProps> = ({ kid }) => {
 
   return (
     <>
-      {/* Clickable Card */}
-      <button
+      {/* Clickable Card (Using div role=button for 100% iPad/iOS touch compatibility) */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={handleCardClick}
-        className="group relative w-full bg-white/10 hover:bg-amber-400 hover:text-slate-900 border border-white/20 hover:border-amber-300 rounded-2xl p-5 flex items-center gap-4 transition-all duration-300 transform hover:-translate-y-1 shadow-lg text-left"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") handleCardClick();
+        }}
+        className="group relative w-full bg-white/10 hover:bg-amber-400 hover:text-slate-900 active:bg-amber-400 active:text-slate-900 border border-white/20 hover:border-amber-300 rounded-2xl p-5 flex items-center gap-4 transition-all duration-200 transform active:scale-98 shadow-lg text-left cursor-pointer select-none"
+        style={{ touchAction: "manipulation" }}
       >
         <KidAvatar
           avatarUrl={kid.avatarUrl}
           name={kid.name}
           size="lg"
-          className="group-hover:border-slate-900 ring-2 ring-amber-300/40 group-hover:ring-slate-900/30"
+          className="group-hover:border-slate-900 ring-2 ring-amber-300/40 group-hover:ring-slate-900/30 shrink-0"
         />
         <div className="flex-1 min-w-0">
-          <h3 className="font-black text-lg text-white group-hover:text-slate-900 transition-colors truncate">
+          <h3 className="font-black text-lg text-white group-hover:text-slate-900 group-active:text-slate-900 transition-colors truncate">
             {kid.name}
           </h3>
-          <div className="flex items-center gap-1.5 text-xs text-indigo-200 group-hover:text-slate-700 mt-1 font-medium">
+          <div className="flex items-center gap-1.5 text-xs text-indigo-200 group-hover:text-slate-700 group-active:text-slate-700 mt-1 font-medium">
             <Lock className="w-3.5 h-3.5 text-amber-300 group-hover:text-slate-800" />
             <span>Mật khẩu bảo vệ 6 số</span>
           </div>
         </div>
-        <div className="w-9 h-9 rounded-full bg-white/20 group-hover:bg-slate-900 group-hover:text-white flex items-center justify-center transition-colors shrink-0">
+        <div className="w-9 h-9 rounded-full bg-white/20 group-hover:bg-slate-900 group-hover:text-white group-active:bg-slate-900 group-active:text-white flex items-center justify-center transition-colors shrink-0">
           <ArrowRight className="w-4 h-4" />
         </div>
-      </button>
+      </div>
 
       {/* PASSCODE POPUP MODAL */}
       {isOpen && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 sm:p-7 text-white shadow-2xl relative text-center">
             {/* Close Button */}
             <button
+              type="button"
               onClick={() => setIsOpen(false)}
-              className="absolute top-4 right-4 p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition"
+              className="absolute top-4 right-4 p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-400 hover:text-white transition touch-manipulation"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
 
             {/* Avatar Header */}
@@ -141,18 +148,20 @@ export const KidProfileCard: React.FC<KidProfileCardProps> = ({ kid }) => {
               {[0, 1, 2, 3, 4, 5].map((index) => (
                 <div
                   key={index}
-                  className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-200 ${
+                  className={`w-4 h-4 rounded-full border-2 transition-all duration-150 ${
                     passcode.length > index
-                      ? "bg-amber-400 border-amber-400 scale-110 shadow-lg shadow-amber-400/40"
+                      ? "bg-amber-400 border-amber-400 scale-110 shadow-lg shadow-amber-400/50"
                       : "border-slate-600 bg-slate-800/60"
                   }`}
                 />
               ))}
             </div>
 
-            {/* Hidden Input for Keyboard */}
+            {/* Hidden/Native Input for Mobile Keyboards */}
             <input
-              type="password"
+              type="tel"
+              inputMode="numeric"
+              pattern="[0-9]*"
               maxLength={6}
               value={passcode}
               onChange={(e) => {
@@ -172,14 +181,14 @@ export const KidProfileCard: React.FC<KidProfileCardProps> = ({ kid }) => {
               </div>
             )}
 
-            {/* Number Keypad */}
-            <div className="grid grid-cols-3 gap-2">
+            {/* Number Keypad with instant touch response */}
+            <div className="grid grid-cols-3 gap-2.5">
               {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((num) => (
                 <button
                   key={num}
                   type="button"
                   onClick={() => handleKeypadPress(num)}
-                  className="py-3 bg-slate-800/90 hover:bg-slate-700 active:scale-95 text-lg font-bold rounded-2xl border border-slate-700/80 transition shadow-sm"
+                  className="py-3.5 bg-slate-800 hover:bg-slate-700 active:bg-amber-400 active:text-slate-950 active:scale-95 text-xl font-bold rounded-2xl border border-slate-700/80 transition duration-100 shadow-sm touch-manipulation select-none"
                 >
                   {num}
                 </button>
@@ -187,21 +196,21 @@ export const KidProfileCard: React.FC<KidProfileCardProps> = ({ kid }) => {
               <button
                 type="button"
                 onClick={() => setPasscode("")}
-                className="py-3 bg-slate-800/40 hover:bg-slate-800 text-xs font-semibold text-slate-400 rounded-2xl transition"
+                className="py-3.5 bg-slate-800/50 hover:bg-slate-800 active:bg-slate-700 text-xs font-semibold text-slate-400 rounded-2xl transition touch-manipulation select-none"
               >
-                Xóa
+                Xóa hết
               </button>
               <button
                 type="button"
                 onClick={() => handleKeypadPress("0")}
-                className="py-3 bg-slate-800/90 hover:bg-slate-700 active:scale-95 text-lg font-bold rounded-2xl border border-slate-700/80 transition shadow-sm"
+                className="py-3.5 bg-slate-800 hover:bg-slate-700 active:bg-amber-400 active:text-slate-950 active:scale-95 text-xl font-bold rounded-2xl border border-slate-700/80 transition duration-100 shadow-sm touch-manipulation select-none"
               >
                 0
               </button>
               <button
                 type="button"
                 onClick={handleKeypadDelete}
-                className="py-3 bg-slate-800/40 hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white rounded-2xl transition"
+                className="py-3.5 bg-slate-800/50 hover:bg-slate-800 active:bg-slate-700 flex items-center justify-center text-slate-400 active:text-white rounded-2xl transition touch-manipulation select-none"
               >
                 <Delete className="w-5 h-5" />
               </button>
@@ -211,7 +220,7 @@ export const KidProfileCard: React.FC<KidProfileCardProps> = ({ kid }) => {
               type="button"
               onClick={() => handleVerify()}
               disabled={isLoading || passcode.length < 6}
-              className="w-full mt-4 py-3 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 disabled:opacity-40 text-slate-950 font-black rounded-xl text-sm shadow-lg transition flex items-center justify-center gap-2"
+              className="w-full mt-4 py-3.5 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 active:scale-98 disabled:opacity-40 text-slate-950 font-black rounded-2xl text-sm shadow-lg transition duration-100 flex items-center justify-center gap-2 touch-manipulation"
             >
               {isLoading ? (
                 <>

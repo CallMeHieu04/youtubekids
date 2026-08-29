@@ -419,17 +419,20 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
               iframeClassName="w-full h-full"
             />
 
-            {/* Click Layer to Toggle Play/Pause on Video Tap */}
-            <div
+            {/* Click/Touch Layer to Toggle Play/Pause on Video Tap */}
+            <button
+              type="button"
+              aria-label="Phát hoặc tạm dừng video"
               onClick={togglePlayPause}
-              className="absolute inset-0 z-10 cursor-pointer flex items-center justify-center"
+              className="absolute inset-0 z-10 cursor-pointer flex items-center justify-center bg-transparent border-0 outline-none select-none touch-manipulation"
+              style={{ touchAction: "manipulation" }}
             >
               {!isPlaying && (
-                <div className="w-20 h-20 rounded-full bg-amber-400/90 text-slate-950 flex items-center justify-center shadow-2xl transform scale-105 transition hover:scale-110">
+                <div className="w-20 h-20 rounded-full bg-amber-400/95 text-slate-950 flex items-center justify-center shadow-2xl transform scale-105 transition hover:scale-110 active:scale-95">
                   <Play className="w-10 h-10 fill-current ml-1" />
                 </div>
               )}
-            </div>
+            </button>
           </div>
         ) : null}
 

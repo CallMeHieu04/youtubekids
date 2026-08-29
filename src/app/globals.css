@@ -19,8 +19,17 @@
   }
 }
 
-body {
+html, body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Tối ưu hóa phản hồi cảm ứng tức thì trên iPhone/iPad/Android */
+button, [role="button"], a, input, select {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
 }
