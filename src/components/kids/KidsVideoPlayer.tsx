@@ -2,15 +2,29 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import YouTube, { YouTubeProps, YouTubePlayer } from "react-youtube";
-import { Clock, ShieldAlert, Sparkles, Home, Volume2, Pause, Play, RefreshCw, KeyRound } from "lucide-react";
+import {
+  Clock,
+  Sparkles,
+  Home,
+  Volume2,
+  VolumeX,
+  Pause,
+  Play,
+  RotateCcw,
+  RotateCw,
+  Maximize,
+  KeyRound,
+  ShieldCheck,
+} from "lucide-react";
 import Link from "next/link";
+import { formatSecondsToMinutes } from "@/lib/utils";
 
 interface KidsVideoPlayerProps {
   videoId: string;
   videoTitle: string;
   profileId: string;
   kidName: string;
-  initialRemainingSeconds: number; // Thời gian còn lại hôm nay tính bằng giây
+  initialRemainingSeconds: number;
   isLockedDirectly?: boolean;
   allowedStartHour?: number;
   allowedEndHour?: number;
@@ -29,11 +43,17 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
   onTimeLimitReached,
 }) => {
   const playerRef = useRef<YouTubePlayer | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
   const [remainingSeconds, setRemainingSeconds] = useState(initialRemainingSeconds);
   const [isLockedOut, setIsLockedOut] = useState(isLockedDirectly || initialRemainingSeconds <= 0);
   const [lockReason, setLockReason] = useState<string>("");
-  const [sessionSeconds, setSessionSeconds] = useState(0);
+
   const [showParentPinPrompt, setShowParentPinPrompt] = useState(false);
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState("");
@@ -50,7 +70,6 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
     return { allowed: true, reason: "" };
   }, [allowedStartHour, allowedEndHour]);
 
-  // Kiểm tra ban đầu khi mount
   useEffect(() => {
     const hourCheck = checkAllowedHours();
     if (!hourCheck.allowed) {
@@ -71,7 +90,7 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
     }
   }, [checkAllowedHours, isLockedDirectly, initialRemainingSeconds]);
 
-  // Ngắt video ngay lập tức
+  // Ngắt video an toàn
   const haltPlayback = useCallback(
     (reason: string) => {
       if (playerRef.current) {
@@ -89,12 +108,11 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
     [onTimeLimitReached]
   );
 
-  // 1. Logic đếm ngược thời gian khi đang phát video
+  // 1. Đếm ngược thời gian trong ngày & Cập nhật thanh thời lượng video
   useEffect(() => {
     if (!isPlaying || isLockedOut) return;
 
     const timer = setInterval(() => {
-      // Kiểm tra lại khung giờ
       const hourCheck = checkAllowedHours();
       if (!hourCheck.allowed) {
         haltPlayback(hourCheck.reason);
@@ -109,13 +127,23 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
         return prev - 1;
       });
 
-      setSessionSeconds((prev) => prev + 1);
+      // Lấy thời gian hiện tại của video
+      if (playerRef.current) {
+        try {
+          const current = playerRef.current.getCurrentTime();
+          const dur = playerRef.current.getDuration();
+          if (typeof current === "number") setCurrentTime(Math.floor(current));
+          if (typeof dur === "number" && dur > 0) setDuration(Math.floor(dur));
+        } catch (e) {
+          // ignore
+        }
+      }
     }, 1000);
 
     return () => clearInterval(timer);
   }, [isPlaying, isLockedOut, checkAllowedHours, haltPlayback]);
 
-  // 2. Heartbeat Ping: Gửi dữ liệu về server mỗi 30 giây khi đang phát
+  // 2. Heartbeat Ping gửi về server mỗi 30s
   useEffect(() => {
     if (!isPlaying || isLockedOut) return;
 
@@ -138,14 +166,18 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
     return () => clearInterval(heartbeatInterval);
   }, [isPlaying, isLockedOut, profileId, videoId]);
 
-  // Xử lý sự kiện YouTube Player Ready
+  // YouTube events
   const onPlayerReady: YouTubeProps["onReady"] = (event) => {
     playerRef.current = event.target;
+    try {
+      const dur = event.target.getDuration();
+      if (dur) setDuration(Math.floor(dur));
+    } catch (e) {
+      // ignore
+    }
   };
 
-  // Xử lý sự kiện YouTube Play
   const onPlayerPlay: YouTubeProps["onPlay"] = async () => {
-    // Kiểm tra trước khi cho phát
     const hourCheck = checkAllowedHours();
     if (!hourCheck.allowed) {
       haltPlayback(hourCheck.reason);
@@ -159,7 +191,6 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
 
     setIsPlaying(true);
 
-    // Bắt đầu phiên xem & Kích hoạt Telegram Bot thông báo
     try {
       await fetch("/api/tracking/play", {
         method: "POST",
@@ -176,14 +207,78 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
     }
   };
 
-  // Xử lý sự kiện Pause
   const onPlayerPause: YouTubeProps["onPause"] = () => {
     setIsPlaying(false);
   };
 
-  // Xử lý sự kiện Video kết thúc
   const onPlayerEnd: YouTubeProps["onEnd"] = () => {
     setIsPlaying(false);
+  };
+
+  // Custom Controls Functions
+  const togglePlayPause = () => {
+    if (!playerRef.current) return;
+    try {
+      if (isPlaying) {
+        playerRef.current.pauseVideo();
+        setIsPlaying(false);
+      } else {
+        playerRef.current.playVideo();
+        setIsPlaying(true);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const seekRelative = (seconds: number) => {
+    if (!playerRef.current) return;
+    try {
+      const current = playerRef.current.getCurrentTime() || 0;
+      const target = Math.max(0, Math.min(duration, current + seconds));
+      playerRef.current.seekTo(target, true);
+      setCurrentTime(Math.floor(target));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const target = Number(e.target.value);
+    setCurrentTime(target);
+    if (playerRef.current) {
+      try {
+        playerRef.current.seekTo(target, true);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
+
+  const toggleMute = () => {
+    if (!playerRef.current) return;
+    try {
+      if (isMuted) {
+        playerRef.current.unMute();
+        setIsMuted(false);
+      } else {
+        playerRef.current.mute();
+        setIsMuted(true);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const toggleFullscreen = () => {
+    if (!containerRef.current) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      containerRef.current.requestFullscreen().catch((err) => {
+        console.error("Error fullscreen:", err);
+      });
+    }
   };
 
   // Mở khóa bằng mã PIN phụ huynh
@@ -198,7 +293,7 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
         body: JSON.stringify({
           profileId,
           pin: pinInput,
-          addMinutes: 15, // Thưởng thêm 15 phút
+          addMinutes: 15,
         }),
       });
 
@@ -211,7 +306,7 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
       } else {
         setPinError(data.message || "Mã PIN không đúng.");
       }
-    } catch (err) {
+    } catch {
       setPinError("Lỗi kết nối máy chủ.");
     }
   };
@@ -219,46 +314,47 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
   const minutesRemaining = Math.floor(remainingSeconds / 60);
   const secondsRemainder = remainingSeconds % 60;
 
-  // Cấu hình tham số bảo vệ cho YouTube IFrame
+  // Cấu hình CHẶN TOÀN BỘ GỢI Ý & LINK NGOÀI CỦA YOUTUBE
   const opts: YouTubeProps["opts"] = {
     height: "100%",
     width: "100%",
     playerVars: {
       autoplay: 1,
-      controls: 1,
+      controls: 0, // TẮT CONTROLS GỐC CỦA YOUTUBE ĐỂ CHẶN "VIDEO KHÁC" & NÚT YOUTUBE
+      disablekb: 1,
+      fs: 0,
+      iv_load_policy: 3,
       modestbranding: 1,
-      rel: 0, // Không gợi ý video ngoài
-      fs: 1, // Cho phép toàn màn hình
-      iv_load_policy: 3, // Tắt chú thích phiền toái
-      disablekb: 0,
+      rel: 0,
       playsinline: 1,
+      showinfo: 0,
     },
   };
 
   return (
     <div className="relative w-full max-w-5xl mx-auto flex flex-col items-center">
-      {/* Top Header Bar: Countdown & Kid Profile Info */}
+      {/* Top Header Bar */}
       <div className="w-full flex items-center justify-between bg-gradient-to-r from-amber-400 via-orange-400 to-pink-500 text-white px-4 sm:px-6 py-3 rounded-2xl shadow-lg mb-4">
         <Link
           href={`/kids/${profileId}`}
-          className="flex items-center gap-2 bg-white/20 hover:bg-white/30 backdrop-blur-md px-3 py-1.5 rounded-full font-bold text-sm transition"
+          className="flex items-center gap-2 bg-white/20 hover:bg-white/30 backdrop-blur-md px-3.5 py-1.5 rounded-full font-bold text-xs sm:text-sm transition shadow-sm"
         >
           <Home className="w-4 h-4" />
-          <span>Về trang chủ</span>
+          <span>Về danh sách video</span>
         </Link>
 
         {/* Đồng hồ đếm ngược sinh động */}
-        <div className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full font-extrabold text-sm sm:text-base tracking-wider shadow-inner">
-          <Clock className={`w-5 h-5 ${remainingSeconds < 300 ? "animate-bounce text-yellow-200" : ""}`} />
+        <div className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full font-extrabold text-xs sm:text-sm tracking-wider shadow-inner">
+          <Clock className={`w-4 h-4 ${remainingSeconds < 300 ? "animate-bounce text-yellow-200" : ""}`} />
           <span>
-            Còn lại:{" "}
+            Thời gian còn:{" "}
             <span className={remainingSeconds < 300 ? "text-yellow-200 underline" : "text-white"}>
-              {minutesRemaining} phút {secondsRemainder.toString().padStart(2, "0")}s
+              {minutesRemaining}p {secondsRemainder.toString().padStart(2, "0")}s
             </span>
           </span>
         </div>
 
-        {/* Nút dành cho phụ huynh mở rộng thời gian */}
+        {/* Nút dành cho phụ huynh */}
         <button
           onClick={() => setShowParentPinPrompt(true)}
           className="flex items-center gap-1.5 text-xs bg-black/20 hover:bg-black/30 px-3 py-1.5 rounded-full font-medium transition"
@@ -269,10 +365,13 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
         </button>
       </div>
 
-      {/* Video Container Frame */}
-      <div className="relative w-full aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-amber-300 ring-4 ring-orange-200">
+      {/* Video Container Frame với Trình phát An Toàn */}
+      <div
+        ref={containerRef}
+        className="relative w-full aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-amber-300 ring-4 ring-orange-200 group"
+      >
         {!isLockedOut ? (
-          <div className="w-full h-full">
+          <div className="w-full h-full relative">
             <YouTube
               videoId={videoId}
               opts={opts}
@@ -280,39 +379,51 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
               onPlay={onPlayerPlay}
               onPause={onPlayerPause}
               onEnd={onPlayerEnd}
-              className="w-full h-full"
+              className="w-full h-full pointer-events-none"
               iframeClassName="w-full h-full"
             />
+
+            {/* Invisible Click Layer to Toggle Play/Pause on Video Tap */}
+            <div
+              onClick={togglePlayPause}
+              className="absolute inset-0 z-10 cursor-pointer flex items-center justify-center"
+            >
+              {!isPlaying && (
+                <div className="w-20 h-20 rounded-full bg-amber-400/90 text-slate-950 flex items-center justify-center shadow-2xl transform scale-105 transition hover:scale-110">
+                  <Play className="w-10 h-10 fill-current ml-1" />
+                </div>
+              )}
+            </div>
           </div>
         ) : null}
 
-        {/* MÀN HÌNH KHÓA THÂN THIỆN KHI HẾT GIỜ HOẶC KHÓA BỞI BỐ MẸ */}
+        {/* MÀN HÌNH KHÓA THÂN THIỆN KHI HẾT GIỜ */}
         {isLockedOut && (
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/95 via-purple-900/95 to-pink-900/95 flex flex-col items-center justify-center p-6 text-center text-white backdrop-blur-lg animate-fadeIn z-30">
-            <div className="w-24 h-24 bg-amber-400/20 rounded-full flex items-center justify-center mb-4 ring-8 ring-amber-400/10 animate-pulse">
-              <Sparkles className="w-12 h-12 text-amber-300" />
+            <div className="w-20 h-20 bg-amber-400/20 rounded-full flex items-center justify-center mb-3 ring-8 ring-amber-400/10 animate-pulse">
+              <Sparkles className="w-10 h-10 text-amber-300" />
             </div>
 
-            <h2 className="text-2xl sm:text-4xl font-black mb-2 text-amber-300 drop-shadow-md">
-              Hết giờ xem rồi bé ơi! 🌟🧸
+            <h2 className="text-2xl sm:text-3xl font-black mb-2 text-amber-300 drop-shadow-md">
+              Hết giờ xem rồi bé {kidName} ơi! 🌟🧸
             </h2>
 
-            <p className="text-sm sm:text-lg text-indigo-100 max-w-md mb-6 leading-relaxed">
-              {lockReason || "Đôi mắt của bé cần được nghỉ ngơi. Hãy đi uống nước, đọc sách hoặc vận động một chút nhé!"}
+            <p className="text-xs sm:text-base text-indigo-100 max-w-md mb-5 leading-relaxed">
+              {lockReason || "Đôi mắt của bé cần được nghỉ ngơi. Hãy đi uống nước hoặc vận động một chút nhé!"}
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Link
                 href={`/kids/${profileId}`}
-                className="flex items-center gap-2 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-slate-900 font-extrabold px-6 py-3 rounded-full shadow-lg hover:scale-105 transition transform active:scale-95"
+                className="flex items-center gap-2 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-slate-950 font-black px-5 py-2.5 rounded-full shadow-lg transition"
               >
-                <Home className="w-5 h-5" />
-                Về danh sách video
+                <Home className="w-4 h-4" />
+                Về trang chủ của bé
               </Link>
 
               <button
                 onClick={() => setShowParentPinPrompt(true)}
-                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold px-5 py-3 rounded-full shadow transition"
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold px-4 py-2.5 rounded-full shadow transition text-xs"
               >
                 <KeyRound className="w-4 h-4" />
                 Bố Mẹ mở thêm giờ
@@ -322,15 +433,89 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
         )}
       </div>
 
-      {/* Tiêu đề Video */}
-      <div className="w-full mt-4 p-4 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
-        <div>
-          <h1 className="text-lg sm:text-xl font-bold text-slate-800 line-clamp-1">{videoTitle}</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Được duyệt an toàn bởi SafeKids Video cho bé {kidName}</p>
-        </div>
-      </div>
+      {/* THANH ĐIỀU KHIỂN RIÊNG BIỆT CHO BÉ (CHẶN 100% YOUTUBE NGOÀI) */}
+      {!isLockedOut && (
+        <div className="w-full mt-3 bg-white rounded-3xl p-4 sm:p-5 shadow-lg border border-slate-100 flex flex-col gap-3">
+          {/* Progress Slider */}
+          <div className="flex items-center gap-3 w-full">
+            <span className="font-mono text-xs font-bold text-slate-600 w-12 text-right">
+              {formatSecondsToMinutes(currentTime)}
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={duration || 100}
+              value={currentTime}
+              onChange={handleSeekChange}
+              className="flex-1 h-2.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-amber-500"
+            />
+            <span className="font-mono text-xs font-bold text-slate-400 w-12">
+              {formatSecondsToMinutes(duration)}
+            </span>
+          </div>
 
-      {/* Modal Nhập PIN dành cho Phụ huynh */}
+          {/* Kid Big Control Buttons */}
+          <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Play / Pause */}
+              <button
+                onClick={togglePlayPause}
+                className="w-12 h-12 rounded-2xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-950 flex items-center justify-center shadow-md transition"
+                title={isPlaying ? "Tạm dừng" : "Phát video"}
+              >
+                {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current ml-0.5" />}
+              </button>
+
+              {/* Tua lùi 10s */}
+              <button
+                onClick={() => seekRelative(-10)}
+                className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition"
+                title="Lùi 10 giây"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+
+              {/* Tua tới 10s */}
+              <button
+                onClick={() => seekRelative(10)}
+                className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition"
+                title="Tua tới 10 giây"
+              >
+                <RotateCw className="w-4 h-4" />
+              </button>
+
+              {/* Mute */}
+              <button
+                onClick={toggleMute}
+                className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition"
+                title={isMuted ? "Bật âm thanh" : "Tắt tiếng"}
+              >
+                {isMuted ? <VolumeX className="w-5 h-5 text-rose-500" /> : <Volume2 className="w-5 h-5" />}
+              </button>
+            </div>
+
+            {/* Video Title & Fullscreen */}
+            <div className="flex items-center gap-3">
+              <div className="text-right hidden sm:block">
+                <h4 className="font-bold text-slate-800 text-xs line-clamp-1 max-w-xs">{videoTitle}</h4>
+                <span className="text-[10px] text-emerald-600 font-semibold flex items-center justify-end gap-1">
+                  <ShieldCheck className="w-3 h-3" /> Chế độ an toàn 100%
+                </span>
+              </div>
+
+              <button
+                onClick={toggleFullscreen}
+                className="w-10 h-10 rounded-xl bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center shadow transition"
+                title="Toàn màn hình"
+              >
+                <Maximize className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Nhập PIN Phụ Huynh */}
       {showParentPinPrompt && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 text-slate-800">
@@ -346,7 +531,7 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
 
             <form onSubmit={handlePinUnlock} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Nhập mã PIN (Mặc định: 1234)</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Nhập mã PIN phụ huynh</label>
                 <input
                   type="password"
                   maxLength={6}
