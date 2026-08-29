@@ -384,15 +384,18 @@ export default function ParentSettingsPage() {
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-              Telegram Chat ID Của Phụ Huynh
+              Telegram Chat ID Của Phụ Huynh (Hỗ trợ nhiều tài khoản)
             </label>
             <input
               type="text"
               value={telegramChatId}
               onChange={(e) => setTelegramChatId(e.target.value)}
-              placeholder="VD: 123456789 (Lấy từ @userinfobot trên Telegram)"
+              placeholder="VD: 6170605138, 987654321 (Nhập nhiều ID cách nhau bằng dấu phẩy để gửi cho cả Bố và Mẹ)"
               className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400"
             />
+            <p className="text-[11px] text-slate-400 mt-1">
+              💡 Bạn có thể nhập nhiều Chat ID (cách nhau bởi dấu phẩy <code className="text-amber-300">,</code>) hoặc ID nhóm gia đình để cả nhà cùng nhận thông báo.
+            </p>
           </div>
 
           <div>
