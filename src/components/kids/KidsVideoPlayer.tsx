@@ -160,28 +160,44 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
     return () => clearInterval(timer);
   }, [isPlaying, isLockedOut, checkAllowedHours, haltPlayback]);
 
-  // 2. Heartbeat Ping mỗi 30s
+  // 2. Heartbeat Ping & Đồng bộ trạng thái Khóa Khẩn Cấp thời gian thực (mỗi 4 giây)
   useEffect(() => {
-    if (!isPlaying || isLockedOut) return;
-
-    const heartbeatInterval = setInterval(async () => {
+    const syncInterval = setInterval(async () => {
       try {
-        await fetch("/api/tracking/heartbeat", {
+        const res = await fetch("/api/tracking/heartbeat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             profileId,
             videoId,
-            deltaSeconds: 30,
+            deltaSeconds: isPlaying && !isLockedOut ? 4 : 0,
           }),
         });
-      } catch (error) {
-        console.error("Heartbeat error:", error);
-      }
-    }, 30000);
 
-    return () => clearInterval(heartbeatInterval);
-  }, [isPlaying, isLockedOut, profileId, videoId]);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.isLocked) {
+            // Phụ huynh đã khóa màn hình từ máy khác -> Ngắt video ngay lập tức!
+            if (!isLockedOut) {
+              haltPlayback("Bố mẹ đã tạm khóa màn hình để bé nghỉ ngơi.");
+            }
+          } else if (isLockedOut && lockReason.includes("Bố mẹ đã tạm khóa") && data.remainingSeconds > 0) {
+            // Phụ huynh đã mở khóa lại từ máy khác -> Tự động mở khóa cho bé!
+            setIsLockedOut(false);
+            setLockReason("");
+          }
+
+          if (typeof data.remainingSeconds === "number") {
+            setRemainingSeconds(data.remainingSeconds);
+          }
+        }
+      } catch (error) {
+        console.error("Heartbeat sync error:", error);
+      }
+    }, 4000);
+
+    return () => clearInterval(syncInterval);
+  }, [isPlaying, isLockedOut, lockReason, profileId, videoId, haltPlayback]);
 
   // YouTube events
   const onPlayerReady: YouTubeProps["onReady"] = (event) => {

@@ -87,7 +87,43 @@ export default function ParentSettingsPage() {
     setKidPasscode(kid.passcode || (kid.id === "kid-thao-ly" ? "200917" : "220520"));
   };
 
-  // 1. Lưu cấu hình Thời gian & Khóa khẩn cấp cho bé đang chọn
+  // Khóa hoặc Mở Khóa Khẩn Cấp TỨC THÌ (Lưu trực tiếp vào Database ngay khi bấm)
+  const handleToggleEmergencyLock = async () => {
+    if (!selectedKidId) return;
+    const nextLockState = !isLocked;
+    setIsLocked(nextLockState);
+
+    try {
+      const res = await fetch(`/api/profiles/${selectedKidId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          isLocked: nextLockState,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setProfiles((prev) =>
+          prev.map((p) => (p.id === selectedKidId ? { ...p, isLocked: nextLockState } : p))
+        );
+        setMessage({
+          type: "success",
+          text: nextLockState
+            ? `🔒 Đã KHÓA màn hình của ${currentKid?.name} ngay lập tức!`
+            : `🔓 Đã MỞ KHÓA màn hình cho ${currentKid?.name}!`,
+        });
+      } else {
+        setIsLocked(!nextLockState); // Revert on failure
+        setMessage({ type: "error", text: data.error || "Không thể đổi trạng thái khóa." });
+      }
+    } catch {
+      setIsLocked(!nextLockState);
+      setMessage({ type: "error", text: "Lỗi kết nối máy chủ khi khóa màn hình." });
+    }
+  };
+
+  // 1. Lưu cấu hình Thời gian & Mật khẩu cho bé đang chọn
   const handleSaveRules = async () => {
     if (!selectedKidId) return;
     setIsSavingRules(true);
@@ -290,14 +326,14 @@ export default function ParentSettingsPage() {
 
           <button
             type="button"
-            onClick={() => setIsLocked(!isLocked)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+            onClick={handleToggleEmergencyLock}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 active:scale-95 ${
               isLocked
                 ? "bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/20"
                 : "bg-slate-700 hover:bg-slate-600 text-slate-200"
             }`}
           >
-            {isLocked ? "Đang Khóa Khẩn Cấp" : "Đang Mở"}
+            {isLocked ? "🔒 Đang Khóa (Bấm để Mở)" : "🔓 Đang Mở (Bấm để Khóa)"}
           </button>
         </div>
 
