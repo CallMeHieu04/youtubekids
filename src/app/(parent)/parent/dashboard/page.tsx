@@ -5,7 +5,6 @@ import {
   Clock,
   Film,
   ShieldCheck,
-  AlertTriangle,
   Play,
   TrendingUp,
   Settings,
@@ -14,6 +13,7 @@ import {
   Unlock,
   CheckCircle2,
   Calendar,
+  Users,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +21,9 @@ export const dynamic = "force-dynamic";
 export default async function ParentDashboardPage() {
   let parent = await prisma.user.findFirst({
     include: {
-      kidProfiles: true,
+      kidProfiles: {
+        orderBy: { createdAt: "asc" },
+      },
       approvedVideos: true,
     },
   });
@@ -32,13 +34,25 @@ export default async function ParentDashboardPage() {
         email: "parent@safekids.app",
         parentPin: "1234",
         kidProfiles: {
-          create: {
-            id: "demo-kid-01",
-            name: "Bé Bắp",
-            avatarUrl: "🦁",
-            dailyLimitMinutes: 45,
-            allowedStartHour: 6,
-            allowedEndHour: 21,
+          createMany: {
+            data: [
+              {
+                id: "kid-thao-ly",
+                name: "Bé Thảo Ly",
+                avatarUrl: "👧",
+                dailyLimitMinutes: 45,
+                allowedStartHour: 6,
+                allowedEndHour: 21,
+              },
+              {
+                id: "kid-duc-duy",
+                name: "Bé Đức Duy",
+                avatarUrl: "👦",
+                dailyLimitMinutes: 45,
+                allowedStartHour: 6,
+                allowedEndHour: 21,
+              },
+            ],
           },
         },
       },
@@ -49,37 +63,29 @@ export default async function ParentDashboardPage() {
     });
   }
 
-  const kid = parent.kidProfiles[0] || null;
+  const kids = parent.kidProfiles;
 
   // Lấy lịch sử xem của ngày hôm nay
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const logsToday = kid
-    ? await prisma.watchLog.findMany({
-        where: {
-          kidProfileId: kid.id,
-          startedAt: { gte: today },
-        },
-        orderBy: { startedAt: "desc" },
-      })
-    : [];
+  const logsToday = await prisma.watchLog.findMany({
+    where: {
+      startedAt: { gte: today },
+    },
+    include: {
+      kidProfile: true,
+    },
+    orderBy: { startedAt: "desc" },
+  });
 
-  const totalSecondsToday = logsToday.reduce((acc, curr) => acc + curr.durationSeconds, 0);
-  const watchedMinutesToday = Math.floor(totalSecondsToday / 60);
-  const remainingMinutes = kid ? Math.max(0, kid.dailyLimitMinutes - watchedMinutesToday) : 0;
-  const usagePercent = kid
-    ? Math.min(100, Math.round((watchedMinutesToday / (kid.dailyLimitMinutes || 1)) * 100))
-    : 0;
-
-  // Toàn bộ lịch sử xem gần đây (30 ngày)
-  const recentLogs = kid
-    ? await prisma.watchLog.findMany({
-        where: { kidProfileId: kid.id },
-        orderBy: { startedAt: "desc" },
-        take: 15,
-      })
-    : [];
+  const recentLogs = await prisma.watchLog.findMany({
+    take: 20,
+    include: {
+      kidProfile: true,
+    },
+    orderBy: { startedAt: "desc" },
+  });
 
   return (
     <div className="space-y-8 animate-fadeIn">
@@ -91,10 +97,10 @@ export default async function ParentDashboardPage() {
             <span>Giám Sát Trẻ Em Thời Gian Thực</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white">
-            Bảng Điều Khiển: {kid ? `Bé ${kid.name}` : "Gia Đình"}
+            Bảng Điều Khiển Gia Đình
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Theo dõi thời lượng xem, quản lý danh sách video và nhận cảnh báo an toàn.
+            Đang quản lý {kids.length} bé ({kids.map((k) => k.name).join(" & ")})
           </p>
         </div>
 
@@ -116,92 +122,88 @@ export default async function ParentDashboardPage() {
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Card 1: Thời lượng xem hôm nay */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-lg relative overflow-hidden">
-          <div className="flex items-center justify-between text-slate-400 mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider">Hôm nay đã xem</span>
-            <div className="p-2 bg-amber-400/10 text-amber-400 rounded-xl">
-              <Clock className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="text-3xl font-black text-white">
-            {watchedMinutesToday}{" "}
-            <span className="text-sm font-semibold text-slate-400">/ {kid?.dailyLimitMinutes || 45} phút</span>
-          </div>
+      {/* Kid Status Cards (Thảo Ly & Đức Duy) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {kids.map((k) => {
+          const kidLogsToday = logsToday.filter((l) => l.kidProfileId === k.id);
+          const totalSeconds = kidLogsToday.reduce((acc, curr) => acc + curr.durationSeconds, 0);
+          const watchedMins = Math.floor(totalSeconds / 60);
+          const remainingMins = Math.max(0, k.dailyLimitMinutes - watchedMins);
+          const usagePct = Math.min(100, Math.round((watchedMins / (k.dailyLimitMinutes || 1)) * 100));
 
-          <div className="mt-3">
-            <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-              <div
-                className={`h-full transition-all duration-500 ${
-                  usagePercent >= 100 ? "bg-rose-500" : usagePercent > 70 ? "bg-amber-400" : "bg-emerald-400"
-                }`}
-                style={{ width: `${usagePercent}%` }}
-              ></div>
-            </div>
-            <div className="flex justify-between text-[10px] text-slate-400 mt-1 font-semibold">
-              <span>Còn lại: {remainingMinutes} phút</span>
-              <span>{usagePercent}%</span>
-            </div>
-          </div>
-        </div>
+          return (
+            <div
+              key={k.id}
+              className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-2xl shadow-inner">
+                      {k.avatarUrl || "👶"}
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-lg text-white">{k.name}</h3>
+                      <p className="text-xs text-slate-400">
+                        Khung giờ: {k.allowedStartHour}:00 - {k.allowedEndHour}:00
+                      </p>
+                    </div>
+                  </div>
 
-        {/* Card 2: Trạng thái Khóa */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-lg">
-          <div className="flex items-center justify-between text-slate-400 mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider">Trạng thái màn hình</span>
-            <div className={`p-2 rounded-xl ${kid?.isLocked ? "bg-rose-500/10 text-rose-400" : "bg-emerald-500/10 text-emerald-400"}`}>
-              {kid?.isLocked ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
-            </div>
-          </div>
-          <div className="text-2xl font-black">
-            {kid?.isLocked ? (
-              <span className="text-rose-400">Đang Khóa Khẩn Cấp</span>
-            ) : remainingMinutes <= 0 ? (
-              <span className="text-amber-400">Hết Giờ Xem</span>
-            ) : (
-              <span className="text-emerald-400">Đang Mở Xem</span>
-            )}
-          </div>
-          <p className="text-xs text-slate-400 mt-2">
-            Khung giờ: <span className="text-slate-200 font-bold">{kid?.allowedStartHour}:00 - {kid?.allowedEndHour}:00</span>
-          </p>
-        </div>
+                  <div
+                    className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 ${
+                      k.isLocked
+                        ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                        : remainingMins <= 0
+                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                        : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                    }`}
+                  >
+                    {k.isLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+                    <span>{k.isLocked ? "Khóa khẩn cấp" : remainingMins <= 0 ? "Hết giờ" : "Đang mở"}</span>
+                  </div>
+                </div>
 
-        {/* Card 3: Số lượng Video đã duyệt */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-lg">
-          <div className="flex items-center justify-between text-slate-400 mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider">Video Trong Whitelist</span>
-            <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl">
-              <Film className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="text-3xl font-black text-white">{parent?.approvedVideos.length || 0}</div>
-          <p className="text-xs text-slate-400 mt-2">Được chọn lọc an toàn 100%</p>
-        </div>
+                {/* Progress bar */}
+                <div className="mt-4 bg-slate-800/80 p-4 rounded-2xl border border-slate-700/60">
+                  <div className="flex justify-between items-center text-xs mb-2">
+                    <span className="font-bold text-slate-300">Thời gian xem hôm nay:</span>
+                    <span className="font-black text-amber-400 text-sm">
+                      {watchedMins} / {k.dailyLimitMinutes} phút
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-700 h-2.5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-500 ${
+                        usagePct >= 100 ? "bg-rose-500" : usagePct > 70 ? "bg-amber-400" : "bg-emerald-400"
+                      }`}
+                      style={{ width: `${usagePct}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[11px] text-slate-400 mt-2 font-medium">
+                    <span>Còn lại: <strong className="text-white">{remainingMins} phút</strong></span>
+                    <span>{usagePct}%</span>
+                  </div>
+                </div>
+              </div>
 
-        {/* Card 4: Telegram Alert */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-lg">
-          <div className="flex items-center justify-between text-slate-400 mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider">Cảnh Báo Telegram</span>
-            <div className="p-2 bg-sky-500/10 text-sky-400 rounded-xl">
-              <TrendingUp className="w-5 h-5" />
+              <div className="flex gap-2 mt-6 pt-4 border-t border-slate-800">
+                <Link
+                  href={`/kids/${k.id}`}
+                  className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl text-center transition"
+                >
+                  Xem Trang Bé
+                </Link>
+                <Link
+                  href="/parent/settings"
+                  className="flex-1 py-2.5 bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 border border-amber-400/30 text-xs font-bold rounded-xl text-center transition"
+                >
+                  Cài Đặt Giờ
+                </Link>
+              </div>
             </div>
-          </div>
-          <div className="text-lg font-black text-white">
-            {parent?.telegramChatId ? (
-              <span className="text-emerald-400 flex items-center gap-1.5 text-sm">
-                <CheckCircle2 className="w-4 h-4" /> Đã Kết Nối
-              </span>
-            ) : (
-              <span className="text-amber-400 text-sm">Chưa Cấu Hình Chat ID</span>
-            )}
-          </div>
-          <Link href="/parent/settings" className="text-xs text-indigo-400 hover:underline mt-2 inline-block">
-            Cấu hình Bot & Chat ID →
-          </Link>
-        </div>
+          );
+        })}
       </div>
 
       {/* Real-time Watch History Table */}
@@ -213,7 +215,7 @@ export default async function ParentDashboardPage() {
               Nhật Ký Xem Gần Đây (Watch Logs)
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Ghi nhận phiên xem và thời gian xem thực tế qua cơ chế heartbeat
+              Ghi nhận phiên xem thực tế của các bé
             </p>
           </div>
         </div>
@@ -227,7 +229,8 @@ export default async function ParentDashboardPage() {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-800/60 text-slate-400 uppercase tracking-wider border-b border-slate-800">
                 <tr>
-                  <th className="py-3 px-4 rounded-l-xl">Video</th>
+                  <th className="py-3 px-4 rounded-l-xl">Bé</th>
+                  <th className="py-3 px-4">Video</th>
                   <th className="py-3 px-4">Thời Điểm Bắt Đầu</th>
                   <th className="py-3 px-4">Thời Lượng Xem Thực Tế</th>
                   <th className="py-3 px-4 rounded-r-xl">Trạng Thái</th>
@@ -248,6 +251,12 @@ export default async function ParentDashboardPage() {
 
                   return (
                     <tr key={log.id} className="hover:bg-slate-800/40 transition">
+                      <td className="py-3.5 px-4 font-extrabold text-amber-300">
+                        <span className="flex items-center gap-1.5">
+                          <span>{log.kidProfile?.avatarUrl || "👶"}</span>
+                          <span>{log.kidProfile?.name || "Bé"}</span>
+                        </span>
+                      </td>
                       <td className="py-3.5 px-4 font-bold text-slate-200">
                         <div className="flex items-center gap-2.5">
                           <div className="w-7 h-7 rounded-lg bg-amber-400/10 text-amber-400 flex items-center justify-center shrink-0">

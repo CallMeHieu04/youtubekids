@@ -12,14 +12,14 @@ import {
   CheckCircle,
   AlertCircle,
   Loader2,
-  Shield,
   Sliders,
-  Sparkles,
+  Users,
 } from "lucide-react";
 import { KidProfileData } from "@/types";
 
 export default function ParentSettingsPage() {
-  const [profile, setProfile] = useState<KidProfileData | null>(null);
+  const [profiles, setProfiles] = useState<KidProfileData[]>([]);
+  const [selectedKidId, setSelectedKidId] = useState<string>("");
   const [dailyLimitMinutes, setDailyLimitMinutes] = useState(45);
   const [allowedStartHour, setAllowedStartHour] = useState(6);
   const [allowedEndHour, setAllowedEndHour] = useState(21);
@@ -30,7 +30,6 @@ export default function ParentSettingsPage() {
   const [telegramBotToken, setTelegramBotToken] = useState("");
 
   // PIN Config
-  const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
 
   // States
@@ -42,46 +41,55 @@ export default function ParentSettingsPage() {
 
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        // Fetch Parent Settings
-        const parentRes = await fetch("/api/parent/settings");
-        const parentData = await parentRes.json();
-        if (parentRes.ok) {
-          setTelegramChatId(parentData.telegramChatId || "");
-          setTelegramBotToken(parentData.telegramBotToken || "");
-        }
-
-        // Fetch Kid Profile
-        const res = await fetch("/api/videos"); // Lấy profile từ dashboard data hoặc route
-        const dashRes = await fetch("/api/tracking/heartbeat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ profileId: "demo-kid-01", videoId: "dummy", deltaSeconds: 0 }),
-        });
-        
-        // Cài đặt mặc định nếu demo
-        setDailyLimitMinutes(45);
-        setAllowedStartHour(6);
-        setAllowedEndHour(21);
-      } catch (e) {
-        console.error("Error loading settings:", e);
-      } finally {
-        setIsLoading(false);
+  const fetchSettings = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch Parent Settings
+      const parentRes = await fetch("/api/parent/settings");
+      const parentData = await parentRes.json();
+      if (parentRes.ok) {
+        setTelegramChatId(parentData.telegramChatId || "");
+        setTelegramBotToken(parentData.telegramBotToken || "");
       }
-    };
 
-    fetchData();
+      // Fetch Kids Profiles
+      const profilesRes = await fetch("/api/profiles");
+      const profilesData = await profilesRes.json();
+      if (profilesRes.ok && profilesData.profiles?.length > 0) {
+        setProfiles(profilesData.profiles);
+        const first = profilesData.profiles[0];
+        setSelectedKidId(first.id);
+        setDailyLimitMinutes(first.dailyLimitMinutes);
+        setAllowedStartHour(first.allowedStartHour);
+        setAllowedEndHour(first.allowedEndHour);
+        setIsLocked(first.isLocked);
+      }
+    } catch (e) {
+      console.error("Error loading settings:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSettings();
   }, []);
 
-  // 1. Lưu cấu hình Thời gian & Khóa khẩn cấp
+  const handleSelectKid = (kid: KidProfileData) => {
+    setSelectedKidId(kid.id);
+    setDailyLimitMinutes(kid.dailyLimitMinutes);
+    setAllowedStartHour(kid.allowedStartHour);
+    setAllowedEndHour(kid.allowedEndHour);
+    setIsLocked(kid.isLocked);
+  };
+
+  // 1. Lưu cấu hình Thời gian & Khóa khẩn cấp cho bé đang chọn
   const handleSaveRules = async () => {
+    if (!selectedKidId) return;
     setIsSavingRules(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/profiles/demo-kid-01", {
+      const res = await fetch(`/api/profiles/${selectedKidId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -94,7 +102,10 @@ export default function ParentSettingsPage() {
 
       const data = await res.json();
       if (res.ok && data.success) {
-        setMessage({ type: "success", text: "Đã cập nhật quy tắc và giới hạn thời gian cho bé!" });
+        setProfiles((prev) =>
+          prev.map((p) => (p.id === selectedKidId ? { ...p, dailyLimitMinutes, allowedStartHour, allowedEndHour, isLocked } : p))
+        );
+        setMessage({ type: "success", text: "Đã cập nhật quy tắc và thời gian xem thành công!" });
       } else {
         setMessage({ type: "error", text: data.error || "Không thể lưu cài đặt." });
       }
@@ -190,6 +201,8 @@ export default function ParentSettingsPage() {
     }
   };
 
+  const currentKid = profiles.find((p) => p.id === selectedKidId);
+
   return (
     <div className="space-y-8 max-w-4xl mx-auto animate-fadeIn pb-12">
       {/* Title */}
@@ -199,7 +212,7 @@ export default function ParentSettingsPage() {
           <span>Cài Đặt & Cấu Hình Giám Sát</span>
         </h1>
         <p className="text-xs sm:text-sm text-slate-400 mt-1">
-          Tùy chỉnh giới hạn thời gian xem, thiết lập thông báo Telegram và bảo mật PIN.
+          Tùy chỉnh thời gian xem cho từng bé, cấu hình cảnh báo Telegram và đổi mã PIN.
         </p>
       </div>
 
@@ -224,15 +237,33 @@ export default function ParentSettingsPage() {
 
       {/* SECTION 1: Cấu hình Thời gian & Khóa màn hình */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-4 gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-amber-400/10 text-amber-400 rounded-2xl">
               <Clock className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">Thời Gian & Khung Giờ Xem (Bé Bắp)</h2>
-              <p className="text-xs text-slate-400">Giới hạn thời lượng và kiểm soát màn hình tức thì</p>
+              <h2 className="text-lg font-bold text-white">Thời Gian & Khung Giờ Xem</h2>
+              <p className="text-xs text-slate-400">Chọn bé để thiết lập giới hạn riêng</p>
             </div>
+          </div>
+
+          {/* Chọn Bé (Thảo Ly / Đức Duy) */}
+          <div className="flex items-center gap-2 bg-slate-800 p-1.5 rounded-2xl border border-slate-700">
+            {profiles.map((kid) => (
+              <button
+                key={kid.id}
+                onClick={() => handleSelectKid(kid)}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${
+                  selectedKidId === kid.id
+                    ? "bg-amber-400 text-slate-950 shadow-md"
+                    : "text-slate-300 hover:text-white"
+                }`}
+              >
+                <span>{kid.avatarUrl}</span>
+                <span>{kid.name}</span>
+              </button>
+            ))}
           </div>
         </div>
 
@@ -243,8 +274,8 @@ export default function ParentSettingsPage() {
               {isLocked ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
             </div>
             <div>
-              <h4 className="text-xs font-bold text-white">Khóa Màn Hình Ngay Lập Tức</h4>
-              <p className="text-[11px] text-slate-400">Ngắt phát video của bé ngay khi bé đang xem</p>
+              <h4 className="text-xs font-bold text-white">Khóa Màn Hình ({currentKid?.name})</h4>
+              <p className="text-[11px] text-slate-400">Ngắt phát video của bé ngay lập tức</p>
             </div>
           </div>
 
@@ -265,7 +296,7 @@ export default function ParentSettingsPage() {
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-              Tổng thời gian xem tối đa mỗi ngày
+              Tổng thời gian xem tối đa mỗi ngày ({currentKid?.name})
             </label>
             <span className="text-sm font-extrabold text-amber-400">{dailyLimitMinutes} phút / ngày</span>
           </div>
@@ -329,7 +360,7 @@ export default function ParentSettingsPage() {
           className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 disabled:opacity-50 text-slate-950 font-black px-6 py-3 rounded-xl text-xs shadow-lg transition"
         >
           {isSavingRules ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          <span>Lưu Cấu Hình Thời Gian</span>
+          <span>Lưu Cấu Hình Cho {currentKid?.name}</span>
         </button>
       </div>
 
@@ -341,7 +372,7 @@ export default function ParentSettingsPage() {
           </div>
           <div>
             <h2 className="text-lg font-bold text-white">Cảnh Báo Qua Telegram Bot</h2>
-            <p className="text-xs text-slate-400">Nhận tin nhắn trên điện thoại khi bé bắt đầu xem hoặc hết giờ</p>
+            <p className="text-xs text-slate-400">Nhận tin nhắn trên điện thoại khi các bé bắt đầu xem hoặc hết giờ</p>
           </div>
         </div>
 
@@ -370,9 +401,6 @@ export default function ParentSettingsPage() {
               placeholder="VD: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11 (Lấy từ @BotFather)"
               className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400"
             />
-            <p className="text-[11px] text-slate-500 mt-1">
-              Nếu để trống, hệ thống sẽ sử dụng Token mặc định trong file .env
-            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -405,7 +433,7 @@ export default function ParentSettingsPage() {
           </div>
           <div>
             <h2 className="text-lg font-bold text-white">Mã PIN Bảo Vệ Phụ Huynh</h2>
-            <p className="text-xs text-slate-400">Mã PIN dùng để mở khóa khu vực cài đặt và cấp thêm giờ xem</p>
+            <p className="text-xs text-slate-400">Mã PIN dùng để mở khóa khu vực cài đặt</p>
           </div>
         </div>
 

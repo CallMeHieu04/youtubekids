@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("🌱 Bắt đầu tạo dữ liệu mẫu cho SafeKids Video...");
+  console.log("🌱 Bắt đầu tạo hồ sơ cho Bé Thảo Ly và Bé Đức Duy...");
 
   const parent = await prisma.user.upsert({
     where: { email: "parent@safekids.app" },
@@ -16,14 +16,48 @@ async function main() {
     },
   });
 
-  const kid = await prisma.kidProfile.upsert({
-    where: { id: "demo-kid-01" },
-    update: {},
+  // Xóa profile cũ nếu có
+  try {
+    await prisma.kidProfile.deleteMany({
+      where: {
+        id: "demo-kid-01",
+      },
+    });
+  } catch (e) {
+    // ignore
+  }
+
+  // 1. Bé Thảo Ly
+  const thaoLy = await prisma.kidProfile.upsert({
+    where: { id: "kid-thao-ly" },
+    update: {
+      name: "Bé Thảo Ly",
+      avatarUrl: "👧",
+    },
     create: {
-      id: "demo-kid-01",
+      id: "kid-thao-ly",
       parentId: parent.id,
-      name: "Bé Bắp",
-      avatarUrl: "🦁",
+      name: "Bé Thảo Ly",
+      avatarUrl: "👧",
+      dailyLimitMinutes: 45,
+      allowedStartHour: 6,
+      allowedEndHour: 21,
+      isLocked: false,
+    },
+  });
+
+  // 2. Bé Đức Duy
+  const ducDuy = await prisma.kidProfile.upsert({
+    where: { id: "kid-duc-duy" },
+    update: {
+      name: "Bé Đức Duy",
+      avatarUrl: "👦",
+    },
+    create: {
+      id: "kid-duc-duy",
+      parentId: parent.id,
+      name: "Bé Đức Duy",
+      avatarUrl: "👦",
       dailyLimitMinutes: 45,
       allowedStartHour: 6,
       allowedEndHour: 21,
@@ -36,15 +70,8 @@ async function main() {
       youtubeVideoId: "XqZsoesa55w",
       title: "Baby Shark Dance | Sing and Dance! | PINKFONG Songs for Children",
       authorName: "Pinkfong Baby Shark",
-      category: "Âm nhạc",
+      category: "Hoạt hình",
       thumbnailUrl: "https://img.youtube.com/vi/XqZsoesa55w/hqdefault.jpg",
-    },
-    {
-      youtubeVideoId: "kJQP7kiw5Fk",
-      title: "Despacito ft. Daddy Yankee",
-      authorName: "Luis Fonsi",
-      category: "Âm nhạc",
-      thumbnailUrl: "https://img.youtube.com/vi/kJQP7kiw5Fk/hqdefault.jpg",
     },
     {
       youtubeVideoId: "WRVsOCh907o",
@@ -59,6 +86,13 @@ async function main() {
       authorName: "Cocomelon - Nursery Rhymes",
       category: "Âm nhạc",
       thumbnailUrl: "https://img.youtube.com/vi/71h8MZKF8bs/hqdefault.jpg",
+    },
+    {
+      youtubeVideoId: "kJQP7kiw5Fk",
+      title: "Bài Hát Bé Đi Mẫu Giáo - Nhạc Thiếu Nhi Vui Nhộn",
+      authorName: "Kênh Thiếu Nhi",
+      category: "Âm nhạc",
+      thumbnailUrl: "https://img.youtube.com/vi/kJQP7kiw5Fk/hqdefault.jpg",
     },
   ];
 
@@ -82,7 +116,7 @@ async function main() {
     });
   }
 
-  console.log("✅ Seed dữ liệu mẫu thành công!");
+  console.log("✅ Đã tạo thành công 2 bé: Bé Thảo Ly & Bé Đức Duy!");
 }
 
 main()
