@@ -45,6 +45,7 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
 }) => {
   const playerRef = useRef<YouTubePlayer | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const hasSentPlayAlertRef = useRef<boolean>(false);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -182,6 +183,11 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
     }
   };
 
+  // Reset trạng thái cảnh báo khi đổi video
+  useEffect(() => {
+    hasSentPlayAlertRef.current = false;
+  }, [videoId]);
+
   const onPlayerPlay: YouTubeProps["onPlay"] = async () => {
     const hourCheck = checkAllowedHours();
     if (!hourCheck.allowed) {
@@ -196,19 +202,23 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
 
     setIsPlaying(true);
 
-    try {
-      await fetch("/api/tracking/play", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          profileId,
-          videoId,
-          videoTitle,
-          kidName,
-        }),
-      });
-    } catch (err) {
-      console.error("Play notification error:", err);
+    // CHỈ GỬI THÔNG BÁO TELEGRAM 1 LẦN DUY NHẤT KHI BẮT ĐẦU VIDEO MỚI
+    if (!hasSentPlayAlertRef.current) {
+      hasSentPlayAlertRef.current = true;
+      try {
+        await fetch("/api/tracking/play", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            profileId,
+            videoId,
+            videoTitle,
+            kidName,
+          }),
+        });
+      } catch (err) {
+        console.error("Play notification error:", err);
+      }
     }
   };
 

@@ -46,11 +46,18 @@ export async function sendTelegramAlert({
 
   const now = new Date();
   const timeString = now.toLocaleTimeString("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+    hour12: false,
   });
-  const dateString = now.toLocaleDateString("vi-VN");
+  const dateString = now.toLocaleDateString("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 
   const progressPercent = Math.min(
     100,
