@@ -3,32 +3,20 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("🌱 Bắt đầu tạo hồ sơ cho Bé Thảo Ly và Bé Đức Duy...");
+  console.log("🌱 Đang đồng bộ toàn bộ video đã thêm vào Supabase...");
 
-  const parent = await prisma.user.upsert({
-    where: { email: "parent@safekids.app" },
-    update: {},
-    create: {
-      email: "parent@safekids.app",
-      parentPin: "1234",
-      telegramChatId: "",
-      telegramBotToken: "",
-    },
-  });
-
-  // Xóa profile cũ nếu có
-  try {
-    await prisma.kidProfile.deleteMany({
-      where: {
-        id: "demo-kid-01",
+  let parent = await prisma.user.findFirst();
+  if (!parent) {
+    parent = await prisma.user.create({
+      data: {
+        email: "parent@safekids.app",
+        parentPin: "1234",
       },
     });
-  } catch (e) {
-    // ignore
   }
 
-  // 1. Bé Thảo Ly
-  const thaoLy = await prisma.kidProfile.upsert({
+  // Cập nhật 2 bé
+  await prisma.kidProfile.upsert({
     where: { id: "kid-thao-ly" },
     update: {
       name: "Bé Thảo Ly",
@@ -46,8 +34,7 @@ async function main() {
     },
   });
 
-  // 2. Bé Đức Duy
-  const ducDuy = await prisma.kidProfile.upsert({
+  await prisma.kidProfile.upsert({
     where: { id: "kid-duc-duy" },
     update: {
       name: "Bé Đức Duy",
@@ -65,38 +52,60 @@ async function main() {
     },
   });
 
-  const sampleVideos = [
+  // Toàn bộ danh sách video bạn đã thêm
+  const allUserVideos = [
     {
-      youtubeVideoId: "XqZsoesa55w",
-      title: "Baby Shark Dance | Sing and Dance! | PINKFONG Songs for Children",
-      authorName: "Pinkfong Baby Shark",
+      youtubeVideoId: "DLqtFH2bnJY",
+      title: "TÂM TÌNH BÉ NHỎ (Phùng Minh Mẫn) giai điệu bài hát hay quá | Thực hiện: Thánh Ca Graceful Sounds.",
+      authorName: "Nhạc Thánh Ca - Graceful Sounds",
+      category: "Âm nhạc",
+      thumbnailUrl: "https://i.ytimg.com/vi/DLqtFH2bnJY/hqdefault.jpg",
+    },
+    {
+      youtubeVideoId: "xHlJlnshgEg",
+      title: "Phim Hoạt Hình Mới Nhất 2020 - QUẢ ỔI XẤU XÍ ► Quà Tặng Cuộc Sống - Truyện Cổ Tích Việt Nam",
+      authorName: "Tuổi Thần Tiên",
       category: "Hoạt hình",
-      thumbnailUrl: "https://img.youtube.com/vi/XqZsoesa55w/hqdefault.jpg",
+      thumbnailUrl: "https://i.ytimg.com/vi/xHlJlnshgEg/hqdefault.jpg",
     },
     {
-      youtubeVideoId: "WRVsOCh907o",
-      title: "Numberblocks - Học Đếm Số Cùng Những Khối Vuông Kì Diệu",
-      authorName: "Numberblocks Tiếng Việt",
+      youtubeVideoId: "6zC9S6hlrRo",
+      title: "SỰ TÍCH CÂY XẤU HỔ - Truyện cổ tích - Phim hoạt hình - Tổng hợp phim hoạt hình hay",
+      authorName: "Sắc Màu Cuộc Sống",
+      category: "Hoạt hình",
+      thumbnailUrl: "https://i.ytimg.com/vi/6zC9S6hlrRo/hqdefault.jpg",
+    },
+    {
+      youtubeVideoId: "RuogOT5jQKA",
+      title: "NHÀ NGHÈO KHOE CỦA | Quà tặng cuộc sống 2026 - Phim hoạt hình dân gian hay - Truyện cổ tích",
+      authorName: "Quà tặng cuộc sống SR",
+      category: "Hoạt hình",
+      thumbnailUrl: "https://i.ytimg.com/vi/RuogOT5jQKA/hqdefault.jpg",
+    },
+    {
+      youtubeVideoId: "tbPkuZBTy8c",
+      title: "Top Bài Hát Tiếng Anh Hay Nhất Cho Trẻ Em | Finger Family| Học Tiếng Anh Qua Bài Hát",
+      authorName: "Kids Tv Vietnam - nhac thieu nhi hay nhất",
+      category: "Âm nhạc",
+      thumbnailUrl: "https://i.ytimg.com/vi/tbPkuZBTy8c/hqdefault.jpg",
+    },
+    {
+      youtubeVideoId: "HZC2AWoLxi0",
+      title: "Bài hát ABC | Bảng chữ cái tiếng Anh | Play & Learn | Nhạc thiếu nhi vui nhộn | Super Pandobi",
+      authorName: "Super Pandobi Việt Nam - Nhạc Thiếu Nhi Cho Bé",
+      category: "Âm nhạc",
+      thumbnailUrl: "https://i.ytimg.com/vi/HZC2AWoLxi0/hqdefault.jpg",
+    },
+    {
+      youtubeVideoId: "F3R2uRPmV4A",
+      title: "Dạy bé học tiếng anh qua các con vật hoạt hình / Dạy bé tập nhận biết tên các con vật - Thanh nấm",
+      authorName: "Thanh Nấm",
       category: "Học tập",
-      thumbnailUrl: "https://img.youtube.com/vi/WRVsOCh907o/hqdefault.jpg",
-    },
-    {
-      youtubeVideoId: "71h8MZKF8bs",
-      title: "Wheels On The Bus | CoComelon Nursery Rhymes & Kids Songs",
-      authorName: "Cocomelon - Nursery Rhymes",
-      category: "Âm nhạc",
-      thumbnailUrl: "https://img.youtube.com/vi/71h8MZKF8bs/hqdefault.jpg",
-    },
-    {
-      youtubeVideoId: "kJQP7kiw5Fk",
-      title: "Bài Hát Bé Đi Mẫu Giáo - Nhạc Thiếu Nhi Vui Nhộn",
-      authorName: "Kênh Thiếu Nhi",
-      category: "Âm nhạc",
-      thumbnailUrl: "https://img.youtube.com/vi/kJQP7kiw5Fk/hqdefault.jpg",
+      thumbnailUrl: "https://i.ytimg.com/vi/F3R2uRPmV4A/hqdefault.jpg",
     },
   ];
 
-  for (const v of sampleVideos) {
+  for (const v of allUserVideos) {
     await prisma.approvedVideo.upsert({
       where: {
         parentId_youtubeVideoId: {
@@ -104,7 +113,12 @@ async function main() {
           youtubeVideoId: v.youtubeVideoId,
         },
       },
-      update: {},
+      update: {
+        title: v.title,
+        authorName: v.authorName,
+        category: v.category,
+        thumbnailUrl: v.thumbnailUrl,
+      },
       create: {
         parentId: parent.id,
         youtubeVideoId: v.youtubeVideoId,
@@ -116,7 +130,7 @@ async function main() {
     });
   }
 
-  console.log("✅ Đã tạo thành công 2 bé: Bé Thảo Ly & Bé Đức Duy!");
+  console.log(`✅ Đã khôi phục thành công toàn bộ ${allUserVideos.length} video bạn đã thêm vào Supabase!`);
 }
 
 main()
