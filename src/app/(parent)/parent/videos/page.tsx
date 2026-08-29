@@ -14,6 +14,8 @@ import {
   CheckCircle,
 } from "lucide-react";
 import AddVideoModal from "@/components/parent/AddVideoModal";
+import ImportChannelModal from "@/components/parent/ImportChannelModal";
+import { Layers } from "lucide-react";
 import { ApprovedVideoData } from "@/types";
 
 export default function ParentVideosPage() {
@@ -22,6 +24,7 @@ export default function ParentVideosPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -91,13 +94,23 @@ export default function ParentVideosPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-slate-950 font-black px-5 py-3 rounded-2xl text-xs shadow-lg transition transform active:scale-95 shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Thêm Video Mới</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-amber-300 font-bold px-4 py-3 rounded-2xl text-xs transition shrink-0"
+          >
+            <Layers className="w-4 h-4 text-amber-400" />
+            <span>⚡ Nhập Cả Kênh / Playlist</span>
+          </button>
+
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-slate-950 font-black px-5 py-3 rounded-2xl text-xs shadow-lg transition transform active:scale-95 shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Thêm Video Mới</span>
+          </button>
+        </div>
       </div>
 
       {/* Status Alert */}
@@ -233,6 +246,19 @@ export default function ParentVideosPage() {
         onSuccess={() => {
           fetchVideos();
           setMessage({ type: "success", text: "Đã thêm video mới vào Whitelist thành công!" });
+        }}
+      />
+
+      {/* Import Channel / Playlist Modal */}
+      <ImportChannelModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={(newVideos) => {
+          fetchVideos();
+          setMessage({
+            type: "success",
+            text: `Đã nhập thêm ${newVideos.length} video mới vào danh sách thành công!`,
+          });
         }}
       />
     </div>
