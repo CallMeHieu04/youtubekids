@@ -15,6 +15,7 @@ import {
   Maximize,
   KeyRound,
   ShieldCheck,
+  Subtitles,
 } from "lucide-react";
 import Link from "next/link";
 import { formatSecondsToMinutes } from "@/lib/utils";
@@ -47,6 +48,7 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [isCaptionsOn, setIsCaptionsOn] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
@@ -108,7 +110,7 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
     [onTimeLimitReached]
   );
 
-  // 1. Đếm ngược thời gian trong ngày & Cập nhật thanh thời lượng video
+  // 1. Đếm ngược thời gian trong ngày & Cập nhật thời lượng
   useEffect(() => {
     if (!isPlaying || isLockedOut) return;
 
@@ -127,7 +129,6 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
         return prev - 1;
       });
 
-      // Lấy thời gian hiện tại của video
       if (playerRef.current) {
         try {
           const current = playerRef.current.getCurrentTime();
@@ -143,7 +144,7 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
     return () => clearInterval(timer);
   }, [isPlaying, isLockedOut, checkAllowedHours, haltPlayback]);
 
-  // 2. Heartbeat Ping gửi về server mỗi 30s
+  // 2. Heartbeat Ping mỗi 30s
   useEffect(() => {
     if (!isPlaying || isLockedOut) return;
 
@@ -172,6 +173,10 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
     try {
       const dur = event.target.getDuration();
       if (dur) setDuration(Math.floor(dur));
+
+      // Tắt phụ đề mặc định khi bắt đầu
+      event.target.setOption("captions", "track", {});
+      event.target.unloadModule("captions");
     } catch (e) {
       // ignore
     }
@@ -270,6 +275,26 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
     }
   };
 
+  // BẬT / TẮT PHỤ ĐỀ
+  const toggleCaptions = () => {
+    if (!playerRef.current) return;
+    try {
+      if (isCaptionsOn) {
+        // Tắt phụ đề
+        playerRef.current.setOption("captions", "track", {});
+        playerRef.current.unloadModule("captions");
+        setIsCaptionsOn(false);
+      } else {
+        // Bật phụ đề tiếng Việt / mặc định
+        playerRef.current.loadModule("captions");
+        playerRef.current.setOption("captions", "track", { languageCode: "vi" });
+        setIsCaptionsOn(true);
+      }
+    } catch (e) {
+      console.error("Caption toggle error:", e);
+    }
+  };
+
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
     if (document.fullscreenElement) {
@@ -314,13 +339,14 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
   const minutesRemaining = Math.floor(remainingSeconds / 60);
   const secondsRemainder = remainingSeconds % 60;
 
-  // Cấu hình CHẶN TOÀN BỘ GỢI Ý & LINK NGOÀI CỦA YOUTUBE
+  // Cấu hình CHẶN TOÀN BỘ GỢI Ý & PHỤ ĐỀ MẶC ĐỊNH
   const opts: YouTubeProps["opts"] = {
     height: "100%",
     width: "100%",
     playerVars: {
       autoplay: 1,
-      controls: 0, // TẮT CONTROLS GỐC CỦA YOUTUBE ĐỂ CHẶN "VIDEO KHÁC" & NÚT YOUTUBE
+      controls: 0,
+      cc_load_policy: 0, // Tắt phụ đề mặc định
       disablekb: 1,
       fs: 0,
       iv_load_policy: 3,
@@ -365,7 +391,7 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
         </button>
       </div>
 
-      {/* Video Container Frame với Trình phát An Toàn */}
+      {/* Video Container Frame */}
       <div
         ref={containerRef}
         className="relative w-full aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-amber-300 ring-4 ring-orange-200 group"
@@ -383,7 +409,7 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
               iframeClassName="w-full h-full"
             />
 
-            {/* Invisible Click Layer to Toggle Play/Pause on Video Tap */}
+            {/* Click Layer to Toggle Play/Pause on Video Tap */}
             <div
               onClick={togglePlayPause}
               className="absolute inset-0 z-10 cursor-pointer flex items-center justify-center"
@@ -397,7 +423,7 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
           </div>
         ) : null}
 
-        {/* MÀN HÌNH KHÓA THÂN THIỆN KHI HẾT GIỜ */}
+        {/* MÀN HÌNH KHÓA KHI HẾT GIỜ */}
         {isLockedOut && (
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/95 via-purple-900/95 to-pink-900/95 flex flex-col items-center justify-center p-6 text-center text-white backdrop-blur-lg animate-fadeIn z-30">
             <div className="w-20 h-20 bg-amber-400/20 rounded-full flex items-center justify-center mb-3 ring-8 ring-amber-400/10 animate-pulse">
@@ -433,7 +459,7 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
         )}
       </div>
 
-      {/* THANH ĐIỀU KHIỂN RIÊNG BIỆT CHO BÉ (CHẶN 100% YOUTUBE NGOÀI) */}
+      {/* THANH ĐIỀU KHIỂN RIÊNG BIỆT CHO BÉ */}
       {!isLockedOut && (
         <div className="w-full mt-3 bg-white rounded-3xl p-4 sm:p-5 shadow-lg border border-slate-100 flex flex-col gap-3">
           {/* Progress Slider */}
@@ -484,13 +510,26 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
                 <RotateCw className="w-4 h-4" />
               </button>
 
-              {/* Mute */}
+              {/* Mute / Unmute */}
               <button
                 onClick={toggleMute}
                 className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition"
                 title={isMuted ? "Bật âm thanh" : "Tắt tiếng"}
               >
                 {isMuted ? <VolumeX className="w-5 h-5 text-rose-500" /> : <Volume2 className="w-5 h-5" />}
+              </button>
+
+              {/* NÚT BẬT / TẮT PHỤ ĐỀ (SUBTITLES / CC) */}
+              <button
+                onClick={toggleCaptions}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs transition border ${
+                  isCaptionsOn
+                    ? "bg-amber-400 border-amber-500 text-slate-950 shadow-sm"
+                    : "bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-600"
+                }`}
+                title={isCaptionsOn ? "Đang BẬT phụ đề (Bấm để Tắt)" : "Đang TẮT phụ đề (Bấm để Bật)"}
+              >
+                <Subtitles className="w-5 h-5" />
               </button>
             </div>
 
