@@ -47,11 +47,13 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
   const playerRef = useRef<YouTubePlayer | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const hasSentPlayAlertRef = useRef<boolean>(false);
+  const hideControlsTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isCaptionsOn, setIsCaptionsOn] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showControls, setShowControls] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
@@ -62,6 +64,17 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
   const [showParentPinPrompt, setShowParentPinPrompt] = useState(false);
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState("");
+
+  // Tự động ẩn thanh điều khiển khi không di chuột trong Fullscreen
+  const handleMouseMove = () => {
+    setShowControls(true);
+    if (hideControlsTimerRef.current) clearTimeout(hideControlsTimerRef.current);
+    if (isFullscreen && isPlaying) {
+      hideControlsTimerRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 3500);
+    }
+  };
 
   // Kiểm tra khung giờ được phép xem
   const checkAllowedHours = useCallback(() => {
@@ -226,10 +239,12 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
 
   const onPlayerPause: YouTubeProps["onPause"] = () => {
     setIsPlaying(false);
+    setShowControls(true);
   };
 
   const onPlayerEnd: YouTubeProps["onEnd"] = () => {
     setIsPlaying(false);
+    setShowControls(true);
   };
 
   // Custom Controls Functions
@@ -305,48 +320,82 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
     }
   };
 
-  // BẬT / TẮT TOÀN MÀN HÌNH (Hỗ trợ 100% iPhone, iPad, Android, PC)
+  // BẬT / TẮT TOÀN MÀN HÌNH CHUẨN YOUTUBE (Edge-to-Edge 100%)
   const toggleFullscreen = () => {
-    // Nếu đang ở chế độ toàn màn hình -> Thoát
-    if (isFullscreen) {
-      if (document.fullscreenElement && document.exitFullscreen) {
+    const elem = containerRef.current as (HTMLDivElement & {
+      webkitRequestFullscreen?: () => Promise<void>;
+    }) | null;
+
+    if (
+      document.fullscreenElement ||
+      (document as unknown as { webkitFullscreenElement?: Element }).webkitFullscreenElement
+    ) {
+      if (document.exitFullscreen) {
         document.exitFullscreen().catch(() => {});
+      } else if ((document as unknown as { webkitExitFullscreen?: () => void }).webkitExitFullscreen) {
+        (document as unknown as { webkitExitFullscreen: () => void }).webkitExitFullscreen();
       }
       setIsFullscreen(false);
-      return;
-    }
-
-    // Bật toàn màn hình: Thử Fullscreen API chuẩn trước, nếu là iPhone/Safari thì fallback sang CSS Fullscreen
-    const elem = containerRef.current as (HTMLDivElement & { webkitRequestFullscreen?: () => Promise<void> }) | null;
-    if (elem && elem.requestFullscreen) {
-      elem
-        .requestFullscreen()
-        .then(() => setIsFullscreen(true))
-        .catch(() => {
-          // Fallback cho iPhone iOS Safari
-          setIsFullscreen(true);
-        });
-    } else if (elem && elem.webkitRequestFullscreen) {
-      elem.webkitRequestFullscreen();
-      setIsFullscreen(true);
+    } else if (elem) {
+      if (elem.requestFullscreen) {
+        elem
+          .requestFullscreen()
+          .then(() => setIsFullscreen(true))
+          .catch(() => {
+            setIsFullscreen(true);
+          });
+      } else if (elem.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        setIsFullscreen(true);
+      }
     } else {
-      // iPhone fallback
-      setIsFullscreen(true);
+      setIsFullscreen((prev) => !prev);
     }
   };
 
-  // Lắng nghe sự kiện thoát Fullscreen từ phím ESC hoặc thao tác vuốt trình duyệt
+  // Đồng bộ trạng thái khi bấm ESC hoặc thoát Fullscreen
   useEffect(() => {
     const handleFullscreenChange = () => {
-      if (!document.fullscreenElement) {
-        // Chỉ reset nếu không phải đang dùng CSS Fullscreen trên mobile
-      }
+      const isNativeFs = !!(
+        document.fullscreenElement ||
+        (document as unknown as { webkitFullscreenElement?: Element }).webkitFullscreenElement
+      );
+      setIsFullscreen(isNativeFs);
     };
+
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+
+    // Phím tắt bàn phím (F: Toàn màn hình, Space: Tạm dừng, M: Tắt tiếng)
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "f" || e.key === "F") {
+        e.preventDefault();
+        toggleFullscreen();
+      } else if (e.key === " " || e.key === "k" || e.key === "K") {
+        e.preventDefault();
+        togglePlayPause();
+      } else if (e.key === "m" || e.key === "M") {
+        e.preventDefault();
+        toggleMute();
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        seekRelative(-10);
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        seekRelative(10);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+      window.removeEventListener("keydown", handleKeyDown);
+      if (hideControlsTimerRef.current) clearTimeout(hideControlsTimerRef.current);
     };
   }, []);
 
@@ -403,67 +452,65 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative w-full transition-all duration-300 flex flex-col items-center ${
+      onMouseMove={handleMouseMove}
+      className={`relative select-none transition-all duration-200 ${
         isFullscreen
-          ? "fixed inset-0 z-[9999] w-screen h-screen bg-slate-950 p-2 sm:p-4 flex flex-col justify-between overflow-y-auto"
-          : "max-w-5xl mx-auto"
+          ? "fixed inset-0 z-[99999] w-screen h-screen bg-black flex flex-col justify-center items-center overflow-hidden"
+          : "w-full max-w-5xl mx-auto flex flex-col items-center"
       }`}
     >
-      {/* Top Header Bar */}
-      <div className="w-full flex items-center justify-between bg-gradient-to-r from-amber-400 via-orange-400 to-pink-500 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl shadow-lg mb-3 shrink-0">
+      {/* Top Header Bar (Chỉ hiển thị ngoài Fullscreen hoặc khi rê chuột trong Fullscreen) */}
+      <div
+        className={`w-full flex items-center justify-between transition-all duration-300 ${
+          isFullscreen
+            ? `absolute top-0 left-0 right-0 z-30 p-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent text-white ${
+                showControls ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
+              }`
+            : "bg-gradient-to-r from-amber-400 via-orange-400 to-pink-500 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl shadow-lg mb-3 shrink-0"
+        }`}
+      >
         <Link
           href={`/kids/${profileId}`}
-          className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-md px-3 py-1.5 rounded-full font-bold text-xs sm:text-sm transition shadow-sm touch-manipulation"
+          className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-md px-3.5 py-1.5 rounded-full font-bold text-xs sm:text-sm transition shadow-sm touch-manipulation"
         >
           <Home className="w-4 h-4" />
-          <span className="hidden sm:inline">Danh sách video</span>
-          <span className="sm:hidden">Thoát</span>
+          <span>Về danh sách video</span>
         </Link>
 
         {/* Đồng hồ đếm ngược sinh động */}
-        <div className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 sm:px-4 py-1.5 rounded-full font-extrabold text-xs sm:text-sm tracking-wider shadow-inner">
+        <div className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-3.5 sm:px-4 py-1.5 rounded-full font-extrabold text-xs sm:text-sm tracking-wider shadow-inner">
           <Clock className={`w-4 h-4 ${remainingSeconds < 300 ? "animate-bounce text-yellow-200" : ""}`} />
           <span>
-            Còn:{" "}
+            Thời gian còn:{" "}
             <span className={remainingSeconds < 300 ? "text-yellow-200 underline" : "text-white"}>
               {minutesRemaining}p {secondsRemainder.toString().padStart(2, "0")}s
             </span>
           </span>
         </div>
 
-        {/* Nút thoát toàn màn hình hoặc PIN Phụ huynh */}
-        <div className="flex items-center gap-2">
-          {isFullscreen && (
-            <button
-              type="button"
-              onClick={toggleFullscreen}
-              className="flex items-center gap-1 text-xs bg-slate-900/90 hover:bg-slate-900 text-amber-300 font-bold px-3 py-1.5 rounded-full shadow transition touch-manipulation"
-            >
-              <Minimize className="w-3.5 h-3.5" />
-              <span>Thu nhỏ</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setShowParentPinPrompt(true)}
-            className="flex items-center gap-1.5 text-xs bg-black/20 hover:bg-black/30 px-3 py-1.5 rounded-full font-medium transition touch-manipulation"
-            title="Dành cho Bố Mẹ"
-          >
-            <KeyRound className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">Phụ huynh</span>
-          </button>
-        </div>
+        {/* Nút PIN Phụ huynh */}
+        <button
+          type="button"
+          onClick={() => setShowParentPinPrompt(true)}
+          className="flex items-center gap-1.5 text-xs bg-black/30 hover:bg-black/40 px-3 py-1.5 rounded-full font-medium transition touch-manipulation"
+          title="Dành cho Bố Mẹ"
+        >
+          <KeyRound className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Phụ huynh</span>
+        </button>
       </div>
 
-      {/* Video Frame */}
+      {/* Video Container Frame */}
       <div
-        className={`relative w-full bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-amber-300 ring-4 ring-orange-200 group flex items-center justify-center ${
-          isFullscreen ? "flex-1 max-h-[78vh] aspect-video mx-auto" : "aspect-video"
+        onDoubleClick={toggleFullscreen}
+        className={`relative bg-black overflow-hidden flex items-center justify-center transition-all duration-200 ${
+          isFullscreen
+            ? "w-full h-full border-0 rounded-0 ring-0"
+            : "w-full aspect-video rounded-3xl shadow-2xl border-4 border-amber-300 ring-4 ring-orange-200"
         }`}
       >
         {!isLockedOut ? (
-          <div className="w-full h-full relative">
+          <div className="w-full h-full relative flex items-center justify-center">
             <YouTube
               videoId={videoId}
               opts={opts}
@@ -471,7 +518,7 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
               onPlay={onPlayerPlay}
               onPause={onPlayerPause}
               onEnd={onPlayerEnd}
-              className="w-full h-full pointer-events-none"
+              className="w-full h-full pointer-events-none flex items-center justify-center"
               iframeClassName="w-full h-full"
             />
 
@@ -529,16 +576,24 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
         )}
       </div>
 
-      {/* THANH ĐIỀU KHIỂN RIÊNG BIỆT CHO BÉ */}
+      {/* THANH ĐIỀU KHIỂN (Trong Fullscreen thì nằm đè lên chân video với nền mờ, ngoài Fullscreen thì nằm dưới) */}
       {!isLockedOut && (
         <div
-          className={`w-full bg-white rounded-3xl p-3 sm:p-4 shadow-lg border border-slate-100 flex flex-col gap-2.5 shrink-0 ${
-            isFullscreen ? "mt-2 max-w-3xl" : "mt-3"
+          className={`transition-all duration-300 ${
+            isFullscreen
+              ? `absolute bottom-0 left-0 right-0 z-30 p-4 sm:p-6 bg-gradient-to-t from-black/90 via-black/60 to-transparent flex flex-col gap-2.5 ${
+                  showControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+                }`
+              : "w-full mt-3 bg-white rounded-3xl p-3 sm:p-4 shadow-lg border border-slate-100 flex flex-col gap-2.5 shrink-0"
           }`}
         >
           {/* Progress Slider */}
           <div className="flex items-center gap-3 w-full">
-            <span className="font-mono text-xs font-bold text-slate-600 w-11 text-right">
+            <span
+              className={`font-mono text-xs font-bold w-11 text-right ${
+                isFullscreen ? "text-slate-200" : "text-slate-600"
+              }`}
+            >
               {formatSecondsToMinutes(currentTime)}
             </span>
             <input
@@ -547,14 +602,18 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
               max={duration || 100}
               value={currentTime}
               onChange={handleSeekChange}
-              className="flex-1 h-2.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-amber-500 touch-manipulation"
+              className="flex-1 h-2.5 bg-slate-200/40 rounded-lg appearance-none cursor-pointer accent-amber-400 touch-manipulation"
             />
-            <span className="font-mono text-xs font-bold text-slate-400 w-11">
+            <span
+              className={`font-mono text-xs font-bold w-11 ${
+                isFullscreen ? "text-slate-400" : "text-slate-400"
+              }`}
+            >
               {formatSecondsToMinutes(duration)}
             </span>
           </div>
 
-          {/* Kid Big Control Buttons */}
+          {/* Control Buttons */}
           <div className="flex items-center justify-between pt-1">
             <div className="flex items-center gap-2 sm:gap-3">
               {/* Play / Pause */}
@@ -562,7 +621,7 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
                 type="button"
                 onClick={togglePlayPause}
                 className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-950 flex items-center justify-center shadow-md transition touch-manipulation"
-                title={isPlaying ? "Tạm dừng" : "Phát video"}
+                title={isPlaying ? "Tạm dừng (Space)" : "Phát video (Space)"}
               >
                 {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current ml-0.5" />}
               </button>
@@ -571,8 +630,12 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
               <button
                 type="button"
                 onClick={() => seekRelative(-10)}
-                className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 flex items-center justify-center transition touch-manipulation"
-                title="Lùi 10 giây"
+                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition touch-manipulation active:scale-95 ${
+                  isFullscreen
+                    ? "bg-white/10 hover:bg-white/20 text-white"
+                    : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                }`}
+                title="Lùi 10 giây (←)"
               >
                 <RotateCcw className="w-4 h-4" />
               </button>
@@ -581,8 +644,12 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
               <button
                 type="button"
                 onClick={() => seekRelative(10)}
-                className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 flex items-center justify-center transition touch-manipulation"
-                title="Tua tới 10 giây"
+                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition touch-manipulation active:scale-95 ${
+                  isFullscreen
+                    ? "bg-white/10 hover:bg-white/20 text-white"
+                    : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                }`}
+                title="Tua tới 10 giây (→)"
               >
                 <RotateCw className="w-4 h-4" />
               </button>
@@ -591,19 +658,25 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
               <button
                 type="button"
                 onClick={toggleMute}
-                className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 flex items-center justify-center transition touch-manipulation"
-                title={isMuted ? "Bật âm thanh" : "Tắt tiếng"}
+                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition touch-manipulation active:scale-95 ${
+                  isFullscreen
+                    ? "bg-white/10 hover:bg-white/20 text-white"
+                    : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                }`}
+                title={isMuted ? "Bật âm thanh (M)" : "Tắt tiếng (M)"}
               >
-                {isMuted ? <VolumeX className="w-5 h-5 text-rose-500" /> : <Volume2 className="w-5 h-5" />}
+                {isMuted ? <VolumeX className="w-5 h-5 text-rose-400" /> : <Volume2 className="w-5 h-5" />}
               </button>
 
-              {/* NÚT BẬT / TẮT PHỤ ĐỀ (SUBTITLES / CC) */}
+              {/* NÚT BẬT / TẮT PHỤ ĐỀ */}
               <button
                 type="button"
                 onClick={toggleCaptions}
                 className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-bold text-xs transition border touch-manipulation active:scale-95 ${
                   isCaptionsOn
                     ? "bg-amber-400 border-amber-500 text-slate-950 shadow-sm"
+                    : isFullscreen
+                    ? "bg-white/10 hover:bg-white/20 border-white/10 text-white"
                     : "bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-600"
                 }`}
                 title={isCaptionsOn ? "Đang BẬT phụ đề (Bấm để Tắt)" : "Đang TẮT phụ đề (Bấm để Bật)"}
@@ -612,23 +685,33 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
               </button>
             </div>
 
-            {/* Video Title & Fullscreen */}
+            {/* Video Title & Fullscreen Button */}
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="text-right hidden md:block">
-                <h4 className="font-bold text-slate-800 text-xs line-clamp-1 max-w-xs">{videoTitle}</h4>
-                <span className="text-[10px] text-emerald-600 font-semibold flex items-center justify-end gap-1">
+                <h4
+                  className={`font-bold text-xs line-clamp-1 max-w-xs ${
+                    isFullscreen ? "text-white" : "text-slate-800"
+                  }`}
+                >
+                  {videoTitle}
+                </h4>
+                <span className="text-[10px] text-emerald-400 font-semibold flex items-center justify-end gap-1">
                   <ShieldCheck className="w-3 h-3" /> Chế độ an toàn 100%
                 </span>
               </div>
 
-              {/* Nút Toàn Màn Hình */}
+              {/* Nút Toàn Màn Hình Chuẩn YouTube */}
               <button
                 type="button"
                 onClick={toggleFullscreen}
-                className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 text-white flex items-center justify-center shadow transition touch-manipulation"
-                title={isFullscreen ? "Thu nhỏ" : "Toàn màn hình"}
+                className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center shadow transition touch-manipulation active:scale-95 ${
+                  isFullscreen
+                    ? "bg-amber-400 text-slate-950 hover:bg-amber-300"
+                    : "bg-slate-900 hover:bg-slate-800 text-white"
+                }`}
+                title={isFullscreen ? "Thu nhỏ (F / ESC)" : "Toàn màn hình (F)"}
               >
-                {isFullscreen ? <Minimize className="w-5 h-5 text-amber-300" /> : <Maximize className="w-5 h-5" />}
+                {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
               </button>
             </div>
           </div>
@@ -637,7 +720,7 @@ export const KidsVideoPlayer: React.FC<KidsVideoPlayerProps> = ({
 
       {/* Modal Nhập PIN Phụ Huynh */}
       {showParentPinPrompt && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[10000] animate-fadeIn">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-[100000] animate-fadeIn">
           <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 text-slate-800">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2.5 bg-amber-100 text-amber-700 rounded-2xl">
