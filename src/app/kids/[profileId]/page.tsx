@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { Play, Clock, Sparkles, ShieldCheck, Lock, Heart, Film } from "lucide-react";
 import { notFound } from "next/navigation";
+import KidAvatar from "@/components/kids/KidAvatar";
 
 interface KidGridPageProps {
   params: Promise<{
@@ -50,9 +51,11 @@ export default async function KidGridPage({ params }: KidGridPageProps) {
       <header className="bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b border-amber-100 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 to-orange-400 flex items-center justify-center text-2xl shadow-md">
-              {profile.avatarUrl || "🦁"}
-            </div>
+            <KidAvatar
+              avatarUrl={profile.avatarUrl}
+              name={profile.name}
+              size="md"
+            />
             <div>
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2">
                 Chào bé {profile.name}! 🌟

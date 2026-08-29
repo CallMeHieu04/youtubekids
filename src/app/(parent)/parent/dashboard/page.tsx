@@ -15,6 +15,7 @@ import {
   Calendar,
   Users,
 } from "lucide-react";
+import KidAvatar from "@/components/kids/KidAvatar";
 
 export const dynamic = "force-dynamic";
 
@@ -139,9 +140,11 @@ export default async function ParentDashboardPage() {
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-2xl shadow-inner">
-                      {k.avatarUrl || "👶"}
-                    </div>
+                    <KidAvatar
+                      avatarUrl={k.avatarUrl}
+                      name={k.name}
+                      size="md"
+                    />
                     <div>
                       <h3 className="font-extrabold text-lg text-white">{k.name}</h3>
                       <p className="text-xs text-slate-400">
@@ -252,10 +255,14 @@ export default async function ParentDashboardPage() {
                   return (
                     <tr key={log.id} className="hover:bg-slate-800/40 transition">
                       <td className="py-3.5 px-4 font-extrabold text-amber-300">
-                        <span className="flex items-center gap-1.5">
-                          <span>{log.kidProfile?.avatarUrl || "👶"}</span>
+                        <div className="flex items-center gap-2">
+                          <KidAvatar
+                            avatarUrl={log.kidProfile?.avatarUrl}
+                            name={log.kidProfile?.name || "Bé"}
+                            size="sm"
+                          />
                           <span>{log.kidProfile?.name || "Bé"}</span>
-                        </span>
+                        </div>
                       </td>
                       <td className="py-3.5 px-4 font-bold text-slate-200">
                         <div className="flex items-center gap-2.5">

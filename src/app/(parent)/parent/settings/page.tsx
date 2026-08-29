@@ -15,6 +15,7 @@ import {
   Sliders,
   Users,
 } from "lucide-react";
+import KidAvatar from "@/components/kids/KidAvatar";
 import { KidProfileData } from "@/types";
 
 export default function ParentSettingsPage() {
@@ -260,7 +261,11 @@ export default function ParentSettingsPage() {
                     : "text-slate-300 hover:text-white"
                 }`}
               >
-                <span>{kid.avatarUrl}</span>
+                <KidAvatar
+                  avatarUrl={kid.avatarUrl}
+                  name={kid.name}
+                  size="sm"
+                />
                 <span>{kid.name}</span>
               </button>
             ))}

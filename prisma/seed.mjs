@@ -32,13 +32,13 @@ async function main() {
     where: { id: "kid-thao-ly" },
     update: {
       name: "Bé Thảo Ly",
-      avatarUrl: "👧",
+      avatarUrl: "/avatars/thao-ly.png",
     },
     create: {
       id: "kid-thao-ly",
       parentId: parent.id,
       name: "Bé Thảo Ly",
-      avatarUrl: "👧",
+      avatarUrl: "/avatars/thao-ly.png",
       dailyLimitMinutes: 45,
       allowedStartHour: 6,
       allowedEndHour: 21,
@@ -51,13 +51,13 @@ async function main() {
     where: { id: "kid-duc-duy" },
     update: {
       name: "Bé Đức Duy",
-      avatarUrl: "👦",
+      avatarUrl: "/avatars/duc-duy.png",
     },
     create: {
       id: "kid-duc-duy",
       parentId: parent.id,
       name: "Bé Đức Duy",
-      avatarUrl: "👦",
+      avatarUrl: "/avatars/duc-duy.png",
       dailyLimitMinutes: 45,
       allowedStartHour: 6,
       allowedEndHour: 21,
