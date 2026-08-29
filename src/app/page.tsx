@@ -119,8 +119,14 @@ export default async function HomePage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-white/10 py-6 text-center text-xs text-slate-400">
-        SafeKids Video © 2026 - Giải Pháp Quản Lý YouTube Thông Minh Cho Phụ Huynh
+      <footer className="border-t border-white/10 py-6 text-center text-xs text-slate-400 flex flex-col sm:flex-row items-center justify-center gap-2 px-4">
+        <span>SafeKids Video © 2026 - Giải Pháp Quản Lý YouTube Thông Minh</span>
+        <span className="hidden sm:inline text-slate-600">•</span>
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-amber-300 font-semibold text-[11px]">
+          <span>Design by</span>
+          <strong className="text-white font-black tracking-wide">Minh Hiếu</strong>
+          <span>✨</span>
+        </span>
       </footer>
     </div>
   );
